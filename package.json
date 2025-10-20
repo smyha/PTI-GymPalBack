@@ -1,0 +1,37 @@
+{
+  "name": "PTI-GymPalBack",
+  "version": "1.0.0",
+  "description": "Backend service for the GymPal application built with Hono and TypeScript",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.5",
+    "hono": "^4.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "tsx": "^4.7.1",
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "hono",
+    "typescript",
+    "nodejs",
+    "backend",
+    "api",
+    "gympal",
+    "pti-fib"
+  ],
+  "author": "PTI-FIB Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
