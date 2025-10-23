@@ -1,6 +1,15 @@
+# Configuration files to exclude
+.gitignore
+tsup.config.ts
+.eslintrc.json
+.prettierrc.json
+.prettierignore
+.prettierrc
+
 # Dependencies
 node_modules/
 .pnpm-store/
+.husky/
 
 # Environment variables
 .env
@@ -11,7 +20,6 @@ node_modules/
 .env.*.local
 
 # Build outputs
-dist/
 build/
 out/
 
@@ -73,7 +81,6 @@ jspm_packages/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
