@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# husky install
+
+# Make sure husky hooks are executable
+chmod +x .husky/pre-commit
+chmod +x .husky/commit-msg
+chmod +x .husky/pre-push
+
+echo "✅ Husky hooks installed successfully!"

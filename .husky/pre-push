@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run full test suite
+echo "🧪 Running full test suite..."
+npm run test:coverage
+
+# Check if all tests pass
+if [ $? -ne 0 ]; then
+    echo "❌ Tests failed! Please fix the issues before pushing."
+    exit 1
+fi
+
+# Check if coverage meets minimum threshold
+echo "📊 Checking test coverage..."
+coverage=$(npm run test:coverage -- --reporter=text-summary | grep -o 'All files[^|]*| [0-9]*\.[0-9]*%' | grep -o '[0-9]*\.[0-9]*%' | head -1 | sed 's/%//')
+threshold=80
+
+if [ -n "$coverage" ] && [ "$(echo "$coverage < $threshold" | bc -l)" -eq 1 ]; then
+    echo "❌ Test coverage ($coverage%) is below the minimum threshold ($threshold%)!"
+    echo "Please add more tests to improve coverage."
+    exit 1
+fi
+
+echo "✅ All checks passed! Coverage: $coverage%"
