@@ -1,0 +1,2154 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GymPal Backend API",
+    "description": "Complete API for the GymPal fitness application with social features, personal tracking, workouts, and analytics",
+    "version": "1.0.0",
+    "contact": {
+      "name": "GymPal Team",
+      "email": "support@gympal.app",
+      "url": "https://gympal.app"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    },
+    {
+      "url": "https://api.gympal.app",
+      "description": "Production server"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "System health and information endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "User authentication and authorization"
+    },
+    {
+      "name": "Users",
+      "description": "User profile management"
+    },
+    {
+      "name": "Personal",
+      "description": "Personal physical information and fitness profile"
+    },
+    {
+      "name": "Social",
+      "description": "Social features including posts, comments, likes, and follows"
+    },
+    {
+      "name": "Exercises",
+      "description": "Exercise management"
+    },
+    {
+      "name": "Workouts",
+      "description": "Workout management"
+    },
+    {
+      "name": "Routines",
+      "description": "Workout routine management"
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard analytics and statistics"
+    },
+    {
+      "name": "Settings",
+      "description": "User settings and preferences"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check if the API is running and healthy",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "API is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "environment": {
+                      "type": "string",
+                      "example": "development"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "uptime": {
+                      "type": "number",
+                      "description": "Server uptime in seconds"
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "1.0.0"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "API Information",
+        "description": "Get API information and available endpoints",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "API information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "GymPal Backend API"
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "1.0.0"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "documentation": {
+                      "type": "object",
+                      "properties": {
+                        "reference": {
+                          "type": "string",
+                          "example": "/reference"
+                        },
+                        "openapi": {
+                          "type": "string",
+                          "example": "/openapi.json"
+                        },
+                        "health": {
+                          "type": "string",
+                          "example": "/health"
+                        }
+                      }
+                    },
+                    "endpoints": {
+                      "type": "object"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Register User",
+        "description": "Register a new user account",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ConflictError"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login User",
+        "description": "Authenticate user and return access tokens",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Logout User",
+        "description": "Logout user and invalidate tokens",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "Refresh Token",
+        "description": "Refresh access token using refresh token",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Get Current User",
+        "description": "Get current authenticated user information",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": {
+            "description": "User information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/change-password/{id}": {
+      "put": {
+        "summary": "Change User Password",
+        "description": "Change password for authenticated user. Users can only change their own password.",
+        "tags": ["Authentication"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Password changed successfully",
+                  "data": null,
+                  "metadata": {
+                    "timestamp": "2025-10-23T10:30:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Forbidden - User can only change their own password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You can only change your own password"
+                  },
+                  "metadata": {
+                    "timestamp": "2025-10-23T10:30:00Z"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/delete-account/{id}": {
+      "delete": {
+        "summary": "Delete User Account",
+        "description": "Permanently delete user account. Users can only delete their own account. This action is irreversible.",
+        "tags": ["Authentication"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Account deleted successfully",
+                  "metadata": {
+                    "timestamp": "2025-10-23T10:30:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Forbidden - User can only delete their own account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You can only delete your own account"
+                  },
+                  "metadata": {
+                    "timestamp": "2025-10-23T10:30:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Account deletion failed"
+                  },
+                  "metadata": {
+                    "timestamp": "2025-10-23T10:30:00Z"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/profile": {
+      "get": {
+        "summary": "Get User Profile",
+        "description": "Get user profile information",
+        "tags": ["Users"],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update User Profile",
+        "description": "Update user profile information including personal details, fitness level, physical measurements, and preferences. Avatar will be automatically generated if not provided or invalid.",
+        "tags": ["Users"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/personal": {
+      "get": {
+        "summary": "Get Complete Personal Data",
+        "description": "Get complete personal data (physical info and fitness profile)",
+        "tags": ["Personal"],
+        "responses": {
+          "200": {
+            "description": "Complete personal data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "personal_info": {
+                              "$ref": "#/components/schemas/PersonalInfo"
+                            },
+                            "fitness_profile": {
+                              "$ref": "#/components/schemas/FitnessProfile"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/personal/info": {
+      "get": {
+        "summary": "Get Personal Physical Information",
+        "description": "Get user's personal physical information (age, weight, height, body fat)",
+        "tags": ["Personal"],
+        "responses": {
+          "200": {
+            "description": "Personal information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PersonalInfo"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Personal Physical Information",
+        "description": "Create or update user's personal physical information",
+        "tags": ["Personal"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonalInfoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Personal information updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PersonalInfo"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/personal/fitness": {
+      "get": {
+        "summary": "Get Fitness Profile",
+        "description": "Get user's fitness profile (goals, preferences, experience level)",
+        "tags": ["Personal"],
+        "responses": {
+          "200": {
+            "description": "Fitness profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/FitnessProfile"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Fitness Profile",
+        "description": "Create or update user's fitness profile",
+        "tags": ["Personal"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FitnessProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fitness profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/FitnessProfile"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/social/posts": {
+      "get": {
+        "summary": "List Posts",
+        "description": "Get paginated list of posts",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageQuery"
+          },
+          {
+            "$ref": "#/components/parameters/LimitQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Posts retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Post",
+        "description": "Create a new social post",
+        "tags": ["Social"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePostRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Post"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/social/posts/{id}": {
+      "get": {
+        "summary": "Get Post",
+        "description": "Get a specific post by ID",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Post"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Post",
+        "description": "Update a post",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePostRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Post"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Post",
+        "description": "Delete a post",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/api/v1/social/posts/{id}/like": {
+      "post": {
+        "summary": "Like Post",
+        "description": "Like a post",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post liked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unlike Post",
+        "description": "Remove like from a post",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post unliked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/social/posts/{id}/comments": {
+      "get": {
+        "summary": "Get Post Comments",
+        "description": "Get all comments for a post",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          },
+          {
+            "$ref": "#/components/parameters/PageQuery"
+          },
+          {
+            "$ref": "#/components/parameters/LimitQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Comment",
+        "description": "Add a comment to a post",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SuccessResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Comment"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      }
+    },
+    "/api/v1/social/follow/{id}": {
+      "post": {
+        "summary": "Follow User",
+        "description": "Follow another user",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User followed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Unfollow User",
+        "description": "Unfollow a user",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User unfollowed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/api/v1/social/feed": {
+      "get": {
+        "summary": "Get User Feed",
+        "description": "Get personalized feed of posts from followed users",
+        "tags": ["Social"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageQuery"
+          },
+          {
+            "$ref": "#/components/parameters/LimitQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feed retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT authentication token"
+      }
+    },
+    "parameters": {
+      "IdPath": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Resource ID",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "PageQuery": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "LimitQuery": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Validation failed",
+                "details": "Invalid input data"
+              }
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Unauthorized - Invalid or missing authentication token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": {
+                "code": "UNAUTHORIZED",
+                "message": "Authentication required"
+              }
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": {
+                "code": "NOT_FOUND",
+                "message": "Resource not found"
+              }
+            }
+          }
+        }
+      },
+      "ConflictError": {
+        "description": "Conflict - Resource already exists",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": {
+                "code": "CONFLICT",
+                "message": "Resource already exists"
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "email", 
+          "password", 
+          "username", 
+          "full_name", 
+          "date_of_birth",
+          "gender", 
+          "terms_accepted", 
+          "privacy_policy_accepted"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100,
+            "description": "User password",
+            "example": "SecurePass123!"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 30,
+            "description": "Username ",
+            "example": "fitnesslover"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Full name",
+            "example": "John Doe"
+          },
+          "date_of_birth": {
+            "type": "string",
+            "format": "date",
+            "description": "User's date of birth",
+            "example": "1990-01-01"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other", "prefer_not_to_say"],
+            "description": "User's gender",
+            "example": "male"
+          },
+          "terms_accepted": {
+            "type": "boolean",
+            "description": "Terms accepted",
+            "example": true
+          },
+          "privacy_policy_accepted": {
+            "type": "boolean",
+            "description": "Privacy policy accepted",
+            "example": true
+          } 
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePass123!"
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refresh_token"],
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "description": "Refresh token"
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": ["currentPassword", "newPassword"],
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "Current user password",
+            "example": "OldSecurePass123!"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 6,
+            "description": "New password (minimum 6 characters)",
+            "example": "NewSecurePass123!"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "$ref": "#/components/schemas/User"
+              },
+              "tokens": {
+                "$ref": "#/components/schemas/AuthTokens"
+              }
+            }
+          },
+          "message": {
+            "type": "string",
+            "example": "User registered successfully"
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/AuthTokens"
+          },
+          "message": {
+            "type": "string",
+            "example": "Token refreshed successfully"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/User"
+          },
+          "message": {
+            "type": "string",
+            "example": "User information retrieved successfully"
+          }
+        }
+      },
+      "UserProfileResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/UserProfile"
+          },
+          "message": {
+            "type": "string",
+            "example": "Profile retrieved successfully"
+          }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "full_name",
+          "fitness_level",
+          "date_of_birth",
+          "gender",
+          "height",
+          "weight"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 30,
+            "description": "Username"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Full name"
+          },
+          "avatar_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Avatar URL (optional, will generate default if not provided or invalid)"
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "User bio"
+          },
+          "fitness_level": {
+            "type": "string",
+            "enum": ["beginner", "intermediate", "advanced", "expert"],
+            "description": "User's fitness level"
+          },
+          "date_of_birth": {
+            "type": "string",
+            "format": "date",
+            "description": "User's date of birth"
+          },
+          "gender": {
+            "type": "string",
+            "enum": ["male", "female", "other", "prefer_not_to_say"],
+            "description": "User's gender"
+          },
+          "height": {
+            "type": "number",
+            "minimum": 50,
+            "maximum": 300,
+            "description": "Height in centimeters"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 20,
+            "maximum": 500,
+            "description": "Weight in kilograms"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "User's timezone"
+          },
+          "language": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 5,
+            "description": "User's preferred language code"
+          }
+        }
+      },
+      "PersonalInfoRequest": {
+        "type": "object",
+        "properties": {
+          "age": {
+            "type": "integer",
+            "minimum": 13,
+            "maximum": 120,
+            "description": "User age",
+            "example": 25
+          },
+          "weight_kg": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 500,
+            "description": "Weight in kilograms",
+            "example": 70.5
+          },
+          "height_cm": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "description": "Height in centimeters",
+            "example": 175
+          },
+          "body_fat_percentage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Body fat percentage",
+            "example": 18.5
+          }
+        }
+      },
+      "PersonalInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "age": {
+            "type": "integer",
+            "nullable": true
+          },
+          "weight_kg": {
+            "type": "number",
+            "nullable": true
+          },
+          "height_cm": {
+            "type": "integer",
+            "nullable": true
+          },
+          "body_fat_percentage": {
+            "type": "number",
+            "nullable": true
+          },
+          "bmi": {
+            "type": "number",
+            "description": "Auto-calculated BMI",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FitnessProfileRequest": {
+        "type": "object",
+        "required": ["primary_goal"],
+        "properties": {
+          "experience_level": {
+            "type": "string",
+            "enum": ["beginner", "intermediate", "advanced", "expert"],
+            "description": "Fitness experience level",
+            "example": "intermediate"
+          },
+          "primary_goal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Primary fitness goal",
+            "example": "Build muscle"
+          },
+          "secondary_goals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Secondary fitness goals",
+            "example": ["Improve flexibility", "Increase endurance"]
+          },
+          "workout_frequency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "description": "Workouts per week",
+            "example": 4
+          },
+          "preferred_workout_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "description": "Preferred workout duration in minutes",
+            "example": 60
+          },
+          "available_equipment": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Available equipment",
+            "example": ["dumbbells", "barbell", "resistance bands"]
+          },
+          "workout_preferences": {
+            "type": "object",
+            "description": "Additional workout preferences"
+          },
+          "injury_history": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Previous injuries",
+            "example": ["knee surgery 2020"]
+          },
+          "medical_restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Medical restrictions",
+            "example": []
+          },
+          "fitness_goals_timeline": {
+            "type": "string",
+            "description": "Timeline for achieving goals",
+            "example": "6 months"
+          },
+          "motivation_level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Motivation level (1-10)",
+            "example": 8
+          }
+        }
+      },
+      "FitnessProfile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FitnessProfileRequest"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      },
+      "CreatePostRequest": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "description": "Post content",
+            "example": "Just finished an amazing workout!"
+          },
+          "workout_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Associated workout ID (optional)",
+            "example": null
+          },
+          "image_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Image URLs",
+            "example": []
+          },
+          "video_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Video URL (optional)",
+            "example": null
+          },
+          "hashtags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^#[a-zA-Z0-9_]+$"
+            },
+            "description": "Hashtags for the post",
+            "example": ["#fitness", "#workout", "#gym"]
+          },
+          "is_public": {
+            "type": "boolean",
+            "description": "Whether the post is public",
+            "default": true,
+            "example": true
+          },
+          "is_original": {
+            "type": "boolean",
+            "description": "Whether this is an original post",
+            "default": true,
+            "example": true
+          },
+          "original_post_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "ID of original post if this is a repost",
+            "example": null
+          },
+          "shared_from_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "ID of user who originally posted if this is a share",
+            "example": null
+          }
+        }
+      },
+      "UpdatePostRequest": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "description": "Post content"
+          },
+          "workout_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Associated workout ID (optional)"
+          },
+          "image_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Image URLs"
+          },
+          "video_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Video URL (optional)"
+          },
+          "hashtags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^#[a-zA-Z0-9_]+$"
+            },
+            "description": "Hashtags for the post"
+          },
+          "is_public": {
+            "type": "boolean",
+            "description": "Whether the post is public"
+          },
+          "is_original": {
+            "type": "boolean",
+            "description": "Whether this is an original post"
+          }
+        }
+      },
+      "Post": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "workout_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "image_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Image URLs"
+          },
+          "video_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Video URL"
+          },
+          "hashtags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hashtags"
+          },
+          "likes_count": {
+            "type": "integer",
+            "description": "Number of likes",
+            "default": 0
+          },
+          "comments_count": {
+            "type": "integer",
+            "description": "Number of comments",
+            "default": 0
+          },
+          "shares_count": {
+            "type": "integer",
+            "description": "Number of shares",
+            "default": 0
+          },
+          "reposts_count": {
+            "type": "integer",
+            "description": "Number of reposts",
+            "default": 0
+          },
+          "is_public": {
+            "type": "boolean",
+            "description": "Whether the post is public",
+            "default": true
+          },
+          "is_original": {
+            "type": "boolean",
+            "description": "Whether this is an original post",
+            "default": true
+          },
+          "original_post_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "ID of original post if this is a repost"
+          },
+          "shared_from_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "ID of user who originally posted if this is a share"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PostListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Post"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "message": {
+            "type": "string",
+            "example": "Posts retrieved successfully"
+          }
+        }
+      },
+      "CreateCommentRequest": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Comment content"
+          }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "post_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CommentListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comment"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "User ID"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email"
+          },
+          "username": {
+            "type": "string",
+            "description": "Username"
+          },
+          "full_name": {
+            "type": "string",
+            "description": "Full name"
+          },
+          "avatar_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Avatar URL",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          }
+        }
+      },
+      "UserProfile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/User"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "bio": {
+                "type": "string",
+                "description": "User bio",
+                "nullable": true
+              },
+              "followers_count": {
+                "type": "integer",
+                "description": "Number of followers"
+              },
+              "following_count": {
+                "type": "integer",
+                "description": "Number of users following"
+              },
+              "posts_count": {
+                "type": "integer",
+                "description": "Number of posts"
+              }
+            }
+          }
+        ]
+      },
+      "AuthTokens": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "JWT access token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "JWT refresh token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "description": "Token expiration time in seconds"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Current page number",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page",
+            "example": 20
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items",
+            "example": 100
+          },
+          "totalPages": {
+            "type": "integer",
+            "description": "Total number of pages",
+            "example": 5
+          },
+          "hasNext": {
+            "type": "boolean",
+            "description": "Whether there is a next page",
+            "example": true
+          },
+          "hasPrev": {
+            "type": "boolean",
+            "description": "Whether there is a previous page",
+            "example": false
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Operation completed successfully"
+          },
+          "data": {
+            "type": "object",
+            "description": "Response data (optional)"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Error code",
+                "example": "VALIDATION_ERROR"
+              },
+              "message": {
+                "type": "string",
+                "description": "Error message",
+                "example": "Validation failed"
+              },
+              "details": {
+                "type": "string",
+                "description": "Additional error details",
+                "example": "Email is required"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

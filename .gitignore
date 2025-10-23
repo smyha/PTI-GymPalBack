@@ -114,3 +114,48 @@ coverage/
 # Misc
 *.tgz
 *.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+.nyc_output
+
+# ESLint
+.eslintcache
+
+# Prettier
+.prettiercache
+
+# Environment
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Local development files
+env.local.example
+env.development
+
+# Supabase
+.supabase/

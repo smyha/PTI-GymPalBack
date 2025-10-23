@@ -4,10 +4,6 @@ Backend service for the GymPal application built with Hono and TypeScript.
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js (v18 or higher)
-- pnpm (recommended) or npm
-
 ### Installation
 
 ```bash
@@ -39,4 +35,3 @@ The server will be running on `http://localhost:3000`
    ```bash
    pnpm run start
    ```
-

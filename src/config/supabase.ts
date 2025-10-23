@@ -41,38 +41,3 @@ export const supabaseAdmin = createClient(
   }
 ) as any;
 
-// ============================================================================
-// AUTHENTICATION HELPERS
-// ============================================================================
-
-/**
- * Get user from JWT token
- * @param token - JWT token
- * @returns User object or null if invalid
- */
-export const getUserFromToken = async (token: string) => {
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error) throw error;
-    return user;
-  } catch (error) {
-    console.error('Error getting user from token:', error);
-    return null;
-  }
-};
-
-/**
- * Verify JWT token and return user data
- * @param token - JWT token
- * @returns User object or null if invalid
- */
-export const verifyToken = async (token: string) => {
-  try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error) throw error;
-    return data.user;
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    return null;
-  }
-};
