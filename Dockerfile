@@ -29,6 +29,10 @@ COPY . .
 RUN pnpm install
 RUN pnpm build
 
+# ! BUILDCACHE STEP
+# Alias for builder stage to maintain compatibility with remote buildcache images
+FROM builder AS buildcache
+
 # ! DEVELOPMENT STEP
 # Development image with hot reload and all dependencies
 FROM base AS development
@@ -60,7 +64,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/openapi.json ./openapi.json
-COPY --from=builder /app/env ./env
 
 # Create a non-root user
 USER gympal

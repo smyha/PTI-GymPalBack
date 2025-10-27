@@ -16,13 +16,16 @@ node_modules/
 .pnpm-store/
 .husky/
 
-# Environment variables
-.env
+# Environment
 .env.local
 .env.development
-.env.test
-.env.production
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Local development files
+env.local.example
+env.development
 
 # Build outputs
 build/
@@ -157,17 +160,7 @@ coverage/
 # Prettier
 .prettiercache
 
-# Environment
-.env
-.env.local
-.env.development
-.env.development.local
-.env.test.local
-.env.production.local
 
-# Local development files
-env.local.example
-env.development
 
 # Supabase
 .supabase/

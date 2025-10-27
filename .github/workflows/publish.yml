@@ -35,7 +35,8 @@ jobs:
       - name: Set SHA tag
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
+      
+      # Push Docker image to GitHub Container Registry
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
