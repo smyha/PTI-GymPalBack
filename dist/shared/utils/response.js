@@ -176,7 +176,7 @@ export const withMetadata = (response, metadata) => {
 export const sendSuccess = (c, data, message, statusCode = HTTP_STATUS.OK, pagination) => {
     const response = success(data, message);
     if (pagination) {
-        response.pagination = pagination;
+        return c.json({ ...response, pagination }, statusCode);
     }
     return c.json(response, statusCode);
 };

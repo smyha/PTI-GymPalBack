@@ -6,18 +6,29 @@ import {
   registerSchema,
   loginSchema,
   resetPasswordSchema,
-  updateProfileSchema,
   changePasswordSchema
 } from '../doc/schemas.js';
-import * as authService from '../services/auth.service.js';
-import * as userService from '../services/user.service.js';
-import { 
-  sendSuccess, 
-  sendError, 
-  sendCreated, 
+import type {
+  RegisterUserDTO,
+  LoginUserDTO
+} from '../lib/auth.js';
+import {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshToken,
+  resetPassword,
+  updatePassword,
+  deleteAccount
+} from '../services/auth.service.js';
+import {
+  sendSuccess,
+  sendError,
+  sendCreated,
   sendDeleted,
 } from '../shared/utils/response.js';
 import { API_MESSAGES, ERROR_CODES } from '../shared/constants/index.js';
+import { authLogger, logError } from '../lib/logger.js';
 
 const auth = new Hono();
 
@@ -48,28 +59,23 @@ const auth = new Hono();
  *         $ref: '#/components/responses/ConflictError'
  */
 // POST  /api/v1/auth/register
-auth.post(
-  '/register',
-  validationMiddleware({ body: registerSchema }),
-  async (c) => {
-    try {
-      const validatedBody = c.get('validatedBody');
-      const data = await authService.registerUser(validatedBody);
-
-      // On success, return the user data (NO TOKEN - only for email confirmation)
-      return sendCreated(c, data, data.message || API_MESSAGES.CREATED);
-
-    } catch (error: any) {
-      // On error, return the error message
-      console.error('Registration error:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.INTERNAL_ERROR,
-        error.message || 'Registration failed',
-        error.statusCode || 500
-      );
+auth.post('/register', validationMiddleware({ body: registerSchema }), async (c) => {
+  try {
+    const data = await registerUser(c.get('validatedBody') as RegisterUserDTO);
+    return sendCreated(c, data, data.message || API_MESSAGES.CREATED);
+  } catch (error: unknown) {
+    interface AppError extends Error {
+      code?: string;
+      statusCode?: number;
     }
-  });
+    const appError = error as AppError;
+    authLogger.error({ error: appError.message, code: appError.code }, 'Registration error');
+    if (error instanceof Error) {
+      logError(error, { endpoint: '/register', method: 'POST' });
+    }
+    return sendError(c, appError.code || ERROR_CODES.INTERNAL_ERROR, appError.message || 'Registration failed', appError.statusCode || 500);
+  }
+});
 
 /**
  * @openapi
@@ -98,28 +104,23 @@ auth.post(
  *         $ref: '#/components/responses/UnauthorizedError'
  */
 // POST  /api/v1/auth/login
-auth.post(
-  '/login',
-  validationMiddleware({ body: loginSchema }),
-  async (c) => {
-    try {
-      const validatedBody = c.get('validatedBody');
-      const response = await authService.loginUser(validatedBody);
-
-      // On success, return the user data
-      return sendSuccess(c, response, response.message || API_MESSAGES.SUCCESS);
-
-    } catch (error: any) {
-      // On error, return the error message
-      console.error('Login error:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.UNAUTHORIZED,
-        error.message || 'Login failed',
-        error.statusCode || 401
-      );
+auth.post('/login', validationMiddleware({ body: loginSchema }), async (c) => {
+  try {
+    const response = await loginUser(c.get('validatedBody') as LoginUserDTO);
+    return sendSuccess(c, response, response.message || API_MESSAGES.SUCCESS);
+  } catch (error: unknown) {
+    interface AppError extends Error {
+      code?: string;
+      statusCode?: number;
     }
-  });
+    const appError = error as AppError;
+    authLogger.error({ error: appError.message, code: appError.code }, 'Login error');
+    if (error instanceof Error) {
+      logError(error, { endpoint: '/login', method: 'POST' });
+    }
+    return sendError(c, appError.code || ERROR_CODES.UNAUTHORIZED, appError.message || 'Login failed', appError.statusCode || 401);
+  }
+});
 
 /**
  * @openapi
@@ -143,30 +144,40 @@ auth.post(
  */
 // GET  /api/v1/auth/me
 auth.get(
-  '/me',
-  authMiddleware,
+  '/me', 
+  authMiddleware, 
   async (c) => {
-    try {
-      const user = c.get('user');
-
-      if (!user) {
-        return sendError(c, ERROR_CODES.UNAUTHORIZED, 'User not authenticated', 401);
-      }
-
-      // On success, return the user data
-      return sendSuccess(c, user, API_MESSAGES.SUCCESS);
-
-    } catch (error: any) {
-      // On error, return the error message and status code
-      console.error('Me request failed:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.UNAUTHORIZED,
-        error.message || 'Failed to get user info',
-        error.statusCode || 401
-      );
+  try {
+    const user = c.get('user');
+    
+    // If user is not authenticated, return an error
+    if (!user) {
+      return sendError(c, ERROR_CODES.UNAUTHORIZED, 'User not authenticated', 401);
     }
-  });
+
+    // If user is authenticated, return the user
+    return sendSuccess(c, user, API_MESSAGES.SUCCESS);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Me request failed';
+    authLogger.error({ error: errorMessage }, 'Me request failed');
+    if (error instanceof Error) {
+      logError(error, { endpoint: '/me', method: 'GET' });
+    }
+
+    interface AppError extends Error {
+      code?: string;
+      statusCode?: number;
+    }
+
+    const appError = error as AppError;
+    return sendError(
+      c,
+      appError.code || ERROR_CODES.UNAUTHORIZED,
+      appError.message || 'Failed to get user info',
+      appError.statusCode || 401
+    );
+  }
+});
 
 /**
  * @openapi
@@ -189,29 +200,16 @@ auth.get(
  *         $ref: '#/components/responses/UnauthorizedError'
  */
 // POST  /api/v1/auth/logout
-auth.post(
-  '/logout',
-  authMiddleware,
-  async (c) => {
-    try {
-      // Get user from middleware context
-      const userId = c.get('userId');
-      console.log('Logging out user:', userId);
-
-      await authService.logoutUser();
-      return sendSuccess(c, null, 'Logged out successfully');
-
-    } catch (error: any) {
-      // On error, return the error message
-      console.error('Logout error:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.INTERNAL_ERROR,
-        error.message || 'Logout failed',
-        error.statusCode || 500
-      );
-    }
-  });
+auth.post('/logout', authMiddleware, async (c) => {
+  try {
+    await logoutUser();
+    return sendSuccess(c, null, 'Logged out successfully');
+  } catch (error: any) {
+    authLogger.error({ error: error.message }, 'Logout error');
+    logError(error as Error, { endpoint: '/logout', method: 'POST' });
+    return sendError(c, error.code || ERROR_CODES.INTERNAL_ERROR, error.message || 'Logout failed', error.statusCode || 500);
+  }
+});
 
 /**
  * @openapi
@@ -238,33 +236,20 @@ auth.post(
  *         $ref: '#/components/responses/UnauthorizedError'
  */
 // POST  /api/v1/auth/refresh
-auth.post(
-  '/refresh',
-  async (c) => {
-    try {
-      const body = await c.req.json();
-      const refresh_token = body.refresh_token || body.refreshToken;
+auth.post('/refresh', async (c) => {
+  try {
+    const body = await c.req.json();
+    const refresh_token = body.refresh_token || body.refreshToken;
+    if (!refresh_token) return sendError(c, ERROR_CODES.VALIDATION_ERROR, 'Refresh token is required', 400);
 
-      if (!refresh_token) {
-        return sendError(c, ERROR_CODES.VALIDATION_ERROR, 'Refresh token is required', 400);
-      }
-
-      const response = await authService.refreshToken(refresh_token);
-
-      // On success, return the new tokens
-      return sendSuccess(c, response, response.message || 'Token refreshed successfully');
-
-    } catch (error: any) {
-      // On error, return the error message and status code
-      console.error('Refresh token request failed:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.UNAUTHORIZED,
-        error.message || 'Token refresh failed',
-        error.statusCode || 401
-      );
-    }
-  });
+    const response = await refreshToken(refresh_token);
+    return sendSuccess(c, response, response.message || 'Token refreshed successfully');
+  } catch (error: any) {
+    authLogger.error({ error: error.message }, 'Refresh token request failed');
+    logError(error as Error, { endpoint: '/refresh', method: 'POST' });
+    return sendError(c, error.code || ERROR_CODES.UNAUTHORIZED, error.message || 'Token refresh failed', error.statusCode || 401);
+  }
+});
 
 /**
  * @openapi
@@ -302,29 +287,24 @@ auth.post(
  *         $ref: '#/components/responses/ValidationError'
  */
 // POST  /api/v1/auth/reset-password
-// Request password reset with token
-auth.post(
-  '/reset-password',
-  validationMiddleware({ body: resetPasswordSchema }),
-  async (c) => {
-    try {
-      const { token, new_password } = c.get('validatedBody');
-      await authService.resetPassword(token, new_password);
-
-      // On success, return the success message
-      return sendSuccess(c, null, 'Password reset successfully');
-
-    } catch (error: any) {
-      // On error, return the error message and status code
-      console.error('Password reset request failed:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.BAD_REQUEST,
-        error.message || 'Password reset failed',
-        error.statusCode || 400
-      );
+auth.post('/reset-password', validationMiddleware({ body: resetPasswordSchema }), async (c) => {
+  try {
+    const body = c.get('validatedBody') as { token: string; new_password: string };
+    await resetPassword(body.token, body.new_password);
+    return sendSuccess(c, null, 'Password reset successfully');
+  } catch (error: unknown) {
+    interface AppError extends Error {
+      code?: string;
+      statusCode?: number;
     }
-  });
+    const appError = error as AppError;
+    authLogger.error({ error: appError.message }, 'Password reset request failed');
+    if (error instanceof Error) {
+      logError(error, { endpoint: '/reset-password', method: 'POST' });
+    }
+    return sendError(c, appError.code || ERROR_CODES.BAD_REQUEST, appError.message || 'Password reset failed', appError.statusCode || 400);
+  }
+});
 
 /**
  * @openapi
@@ -365,40 +345,35 @@ auth.post(
  *         description: Forbidden - User can only change their own password
  */
 // PUT  /api/v1/auth/change-password/:id
-// Change password for authenticated user
-auth.put(
-  '/change-password/:id',
-  authMiddleware,
-  validationMiddleware({ body: changePasswordSchema }),
-  async (c) => {
-    try {
-      const userId = c.get('userId');
-      const requestedUserId = c.req.param('id');
+auth.put('/change-password/:id', authMiddleware, validationMiddleware({ body: changePasswordSchema }), async (c) => {
+  try {
+    const userId = c.get('userId');
+    const requestedUserId = c.req.param('id');
 
-      // Ensure user can only change their own password
-      if (userId !== requestedUserId) {
-        return sendError(c, ERROR_CODES.FORBIDDEN, 'You can only change your own password', 403);
-      }
-
-      const { currentPassword, newPassword } = c.get('validatedBody');
-
-      // Validate current password and update to new password
-      await authService.updatePassword(newPassword);
-
-      // On success, return the success message
-      return sendSuccess(c, null, 'Password changed successfully');
-
-    } catch (error: any) {
-      // On error, return the error message and status code
-      console.error('Password change request failed:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.BAD_REQUEST,
-        error.message || 'Password change failed',
-        error.statusCode || 400
-      );
+    // Ensure user can only change their own password
+    if (userId !== requestedUserId) {
+      return sendError(c, ERROR_CODES.FORBIDDEN, 'You can only change your own password', 403);
     }
-  });
+
+    const body = c.get('validatedBody') as { currentPassword: string; newPassword: string };
+
+    // Validate current password and update to new password
+    await updatePassword(body.currentPassword, body.newPassword);
+    // On success, return the success message
+    return sendSuccess(c, null, 'Password changed successfully');
+  } catch (error: unknown) {
+    interface AppError extends Error {
+      code?: string;
+      statusCode?: number;
+    }
+    const appError = error as AppError;
+    authLogger.error({ error: appError.message }, 'Password change request failed');
+    if (error instanceof Error) {
+      logError(error, { endpoint: '/change-password', method: 'PUT' });
+    }
+    return sendError(c, appError.code || ERROR_CODES.BAD_REQUEST, appError.message || 'Password change failed', appError.statusCode || 400);
+  }
+});
 
 /**
  * @openapi
@@ -434,36 +409,19 @@ auth.put(
  *         description: Internal server error
  */
 // DELETE /api/v1/auth/delete-account/:id
-// Delete user account
-auth.delete(
-  '/delete-account/:id',
-  authMiddleware,
-  async (c) => {
-    try {
-      const userId = c.get('userId');
-      const requestedUserId = c.req.param('id');
+auth.delete('/delete-account/:id', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId');
+    const requestedUserId = c.req.param('id');
+    if (userId !== requestedUserId) return sendError(c, ERROR_CODES.FORBIDDEN, 'You can only delete your own account', 403);
 
-      // Ensure user can only delete their own account
-      if (userId !== requestedUserId) {
-        return sendError(c, ERROR_CODES.FORBIDDEN, 'You can only delete your own account', 403);
-      }
-
-      // Delete the account using user service
-      await userService.deleteAccount(c, { confirmation: 'DELETE' });
-
-      // On success, return success message
-      return sendDeleted(c, 'Account deleted successfully');
-
-    } catch (error: any) {
-      // On error, return the error message and status code
-      console.error('Account deletion request failed:', error);
-      return sendError(
-        c,
-        error.code || ERROR_CODES.INTERNAL_ERROR,
-        error.message || 'Account deletion failed',
-        error.statusCode || 500
-      );
-    }
-  });
+    await deleteAccount(userId);
+    return sendDeleted(c, 'Account deleted successfully');
+  } catch (error: any) {
+    authLogger.error({ error: error.message }, 'Account deletion request failed');
+    logError(error as Error, { endpoint: '/delete-account', method: 'DELETE' });
+    return sendError(c, error.code || ERROR_CODES.INTERNAL_ERROR, error.message || 'Account deletion failed', error.statusCode || 500);
+  }
+});
 
 export default auth;

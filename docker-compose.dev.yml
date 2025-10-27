@@ -17,16 +17,16 @@ services:
     networks:
       - gympal-network
 
-  # Redis for caching and sessions
-  redis:
-    image: redis:7-alpine
-    container_name: gympal-redis-dev
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - gympal-network
+  # # (optional) Redis for caching and sessions
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: gympal-redis-dev
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - gympal-network
 
   # Supabase Local Development
   supabase:
@@ -84,7 +84,7 @@ services:
       - /app/node_modules
     depends_on:
       - postgres
-      - redis
+      # - redis
       - supabase
     networks:
       - gympal-network

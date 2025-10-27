@@ -1,6 +1,33 @@
-import { Context } from 'hono';
+import type { HonoContext } from '../types/hono.types.js';
 import { HTTP_STATUS, API_MESSAGES, ERROR_CODES } from '../constants/index.js';
-import type { ApiResponse, PaginationResult } from '../types/index.js';
+
+// Type definitions
+interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+  pagination?: PaginationResult;
+  metadata?: {
+    timestamp?: string;
+    [key: string]: unknown;
+  };
+}
+
+interface PaginationResult {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+  nextPage?: number;
+  prevPage?: number;
+}
 
 // Success responses
 export const success = <T>(data: T, message: string = API_MESSAGES.SUCCESS): ApiResponse<T> => {
@@ -50,7 +77,7 @@ export const deleted = (message: string = API_MESSAGES.DELETED): ApiResponse => 
 export const error = (
   code: string,
   message: string,
-  details?: any,
+  details?: unknown,
   statusCode: number = HTTP_STATUS.INTERNAL_SERVER_ERROR
 ): ApiResponse => {
   return {
@@ -66,7 +93,7 @@ export const error = (
   };
 };
 
-export const validationError = (errors: string[], details?: any): ApiResponse => {
+export const validationError = (errors: string[], details?: unknown): ApiResponse => {
   return {
     success: false,
     error: {
@@ -191,7 +218,7 @@ export const paginated = <T>(
 // Response with metadata
 export const withMetadata = <T>(
   response: ApiResponse<T>,
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 ): ApiResponse<T> => {
   return {
     ...response,
@@ -203,54 +230,44 @@ export const withMetadata = <T>(
 };
 
 // Hono response helpers
-export const sendSuccess = <T>(c: Context, data: T, message?: string, statusCode: number = HTTP_STATUS.OK, pagination?: any) => {
+export const sendSuccess = <T>(c: HonoContext, data: T, message?: string, statusCode: number = HTTP_STATUS.OK, pagination?: PaginationResult) => {
   const response = success(data, message);
   if (pagination) {
-    (response as any).pagination = pagination;
+    return c.json({ ...response, pagination }, statusCode as any);
   }
   return c.json(response, statusCode as any);
 };
 
-export const sendCreated = <T>(c: Context, data: T, message?: string) => {
-  return c.json(created(data, message), HTTP_STATUS.CREATED as any);
+export const sendCreated = <T>(c: HonoContext, data: T, message?: string) => {
+  return c.json(created(data, message), HTTP_STATUS.CREATED);
 };
 
-
-export const sendDeleted = (c: Context, message?: string) => {
-  return c.json(deleted(message), HTTP_STATUS.OK as any);
+export const sendDeleted = (c: HonoContext, message?: string) => {
+  return c.json(deleted(message), HTTP_STATUS.OK);
 };
 
-export const sendError = (
-  c: Context,
-  code: string,
-  message: string,
-  statusCode: number = HTTP_STATUS.INTERNAL_SERVER_ERROR,
-  details?: any
-) => {
+export const sendError = (c: HonoContext, code: string, message: string, statusCode: number = HTTP_STATUS.INTERNAL_SERVER_ERROR, details?: unknown) => {
   return c.json(error(code, message, details, statusCode), statusCode as any);
 };
 
-export const sendValidationError = (c: Context, errors: string[], details?: any) => {
-  return c.json(validationError(errors, details), HTTP_STATUS.BAD_REQUEST as any);
+export const sendValidationError = (c: HonoContext, errors: string[], details?: unknown) => {
+  return c.json(validationError(errors, details), HTTP_STATUS.BAD_REQUEST);
 };
 
-
-export const sendNotFound = (c: Context, resource?: string) => {
-  return c.json(notFound(resource), HTTP_STATUS.NOT_FOUND as any);
+export const sendNotFound = (c: HonoContext, resource?: string) => {
+  return c.json(notFound(resource), HTTP_STATUS.NOT_FOUND);
 };
 
-export const sendUnauthorized = (c: Context, message?: string) => {
-  return c.json(unauthorized(message), HTTP_STATUS.UNAUTHORIZED as any);
+export const sendUnauthorized = (c: HonoContext, message?: string) => {
+  return c.json(unauthorized(message), HTTP_STATUS.UNAUTHORIZED);
 };
 
-
-export const sendConflict = (c: Context, message?: string) => {
-  return c.json(conflict(message), HTTP_STATUS.CONFLICT as any);
+export const sendConflict = (c: HonoContext, message?: string) => {
+  return c.json(conflict(message), HTTP_STATUS.CONFLICT);
 };
 
-
-export const sendInternalError = (c: Context, message?: string) => {
-  return c.json(internalError(message), HTTP_STATUS.INTERNAL_SERVER_ERROR as any);
+export const sendInternalError = (c: HonoContext, message?: string) => {
+  return c.json(internalError(message), HTTP_STATUS.INTERNAL_SERVER_ERROR);
 };
 
 export default {

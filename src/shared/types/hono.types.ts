@@ -1,4 +1,5 @@
-import { Context } from 'hono';
+import type { Context, Next } from 'hono';
+import type { User } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 // Define a generic type for validated data
@@ -12,13 +13,16 @@ declare module 'hono' {
   interface ContextVariableMap {
     userId: string;
     userEmail: string;
-    user: any; // User object from auth middleware
-    validatedBody: any; // This will be refined by middleware
-    validatedQuery: any; // This will be refined by middleware
-    validatedParams: any; // This will be refined by middleware
+    user: User;
+    supabase: unknown;
+    requestId: string;
+    validatedBody: unknown;
+    validatedQuery: unknown;
+    validatedParams: unknown;
   }
 }
 
 // Export types for use in handlers
 export type HonoContext = Context;
+export type HonoNext = Next;
 export type { ValidatedData };

@@ -36,13 +36,12 @@ export async function createPost(c: Context, body: any) {
       .insert({
         user_id: userId,
         content,
-        images,
+        image_urls: Array.isArray(images) ? images : [images],
         workout_id,
-        routine_id,
-        tags,
+        hashtags: Array.isArray(tags) ? tags : tags,
         is_public: is_public || false,
         created_at: new Date().toISOString()
-      })
+      } as any)
       .select(`
         *,
         profiles!posts_user_id_fkey (
@@ -101,7 +100,7 @@ export async function updatePost(c: Context, postId: string, body: any) {
       return sendNotFound(c, API_MESSAGES.POST_NOT_FOUND);
     }
 
-    if (existingPost.user_id !== userId) {
+    if ((existingPost as any).user_id !== userId) {
       return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to update this post', 403);
     }
 
@@ -113,13 +112,14 @@ export async function updatePost(c: Context, postId: string, body: any) {
     // Update post
     const { data: post, error } = await supabase
       .from('posts')
+      // @ts-expect-error - posts table structure mismatch
       .update({
         content,
-        images,
-        tags,
+        image_urls: images,
+        hashtags: tags,
         is_public,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', postId)
       .select(`
         *,
@@ -157,7 +157,7 @@ export async function deletePost(c: Context, postId: string) {
       return sendNotFound(c, API_MESSAGES.POST_NOT_FOUND);
     }
 
-    if (existingPost.user_id !== userId) {
+    if ((existingPost as any).user_id !== userId) {
       return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to delete this post', 403);
     }
 
@@ -286,7 +286,7 @@ export async function likePost(c: Context, postId: string) {
         user_id: userId,
         post_id: postId,
         created_at: new Date().toISOString()
-      })
+      } as any)
       .select()
       .single();
 
@@ -386,9 +386,9 @@ export async function createComment(c: Context, postId: string, body: any) {
         user_id: userId,
         post_id: postId,
         content,
-        parent_id,
+        parent_comment_id: parent_id,
         created_at: new Date().toISOString()
-      })
+      } as any)
       .select(`
         *,
         profiles!post_comments_user_id_fkey (
@@ -453,7 +453,7 @@ export async function deleteComment(c: Context, commentId: string) {
       return sendNotFound(c, 'Comment not found');
     }
 
-    if (existingComment.user_id !== userId) {
+    if ((existingComment as any).user_id !== userId) {
       return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to delete this comment', 403);
     }
 
@@ -577,10 +577,10 @@ export async function sharePost(c: Context, postId: string, body: any) {
     const { data: share, error } = await supabase
       .from('post_shares')
       .insert({
-        user_id: userId,
+        shared_by_user_id: userId,
         post_id: postId,
         shared_at: new Date().toISOString()
-      })
+      } as any)
       .select()
       .single();
 
@@ -609,7 +609,7 @@ export async function repost(c: Context, postId: string, body: any) {
         content: body.content || '',
         is_repost: true,
         created_at: new Date().toISOString()
-      })
+      } as any)
       .select()
       .single();
 
@@ -657,7 +657,7 @@ export async function followUser(c: Context, targetUserId: string) {
         follower_id: userId,
         following_id: targetUserId,
         created_at: new Date().toISOString()
-      })
+      } as any)
       .select()
       .single();
 

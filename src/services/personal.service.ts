@@ -101,7 +101,7 @@ export async function upsertPersonalInfo(c: Context, body: any) {
       // Update existing record
       const { data, error } = await supabase
         .from('user_personal_info')
-        .update(personalData)
+        .update(personalData as never)
         .eq('user_id', userId)
         .select()
         .single();
@@ -122,7 +122,7 @@ export async function upsertPersonalInfo(c: Context, body: any) {
       // Create new record
       const { data, error } = await supabase
         .from('user_personal_info')
-        .insert({ ...personalData, created_at: new Date().toISOString() })
+        .insert({ ...personalData, created_at: new Date().toISOString() } as never)
         .select()
         .single();
 
@@ -262,7 +262,7 @@ export async function upsertFitnessProfile(c: Context, body: any) {
       // Update existing record
       const { data, error } = await supabase
         .from('user_fitness_profile')
-        .update(fitnessData)
+        .update(fitnessData as never)
         .eq('user_id', userId)
         .select()
         .single();
@@ -283,7 +283,7 @@ export async function upsertFitnessProfile(c: Context, body: any) {
       // Create new record
       const { data, error } = await supabase
         .from('user_fitness_profile')
-        .insert({ ...fitnessData, created_at: new Date().toISOString() })
+        .insert({ ...fitnessData, created_at: new Date().toISOString() } as never)
         .select()
         .single();
 

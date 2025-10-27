@@ -32,9 +32,7 @@ export async function createRoutine(c, body) {
             }
         }
         // Create routine
-        const { data: routine, error } = await supabase
-            .from('routines')
-            .insert({
+        const routineData = {
             user_id: userId,
             name,
             description,
@@ -44,7 +42,10 @@ export async function createRoutine(c, body) {
             is_public: is_public || false,
             schedule,
             created_at: new Date().toISOString()
-        })
+        };
+        const { data: routine, error } = await supabase
+            .from('routines')
+            .insert(routineData)
             .select()
             .single();
         if (error) {
@@ -53,8 +54,9 @@ export async function createRoutine(c, body) {
         return sendSuccess(c, routine, API_MESSAGES.CREATED);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Create routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get routine by ID
@@ -76,8 +78,9 @@ export async function getRoutine(c, routineId) {
         return sendSuccess(c, routine, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Update routine
@@ -94,7 +97,8 @@ export async function updateRoutine(c, routineId, body) {
         if (checkError || !existingRoutine) {
             return sendNotFound(c, API_MESSAGES.ROUTINE_NOT_FOUND);
         }
-        if (existingRoutine.user_id !== userId) {
+        const routineCheck = existingRoutine;
+        if (routineCheck.user_id !== userId) {
             return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to update this routine', 403);
         }
         // Validate difficulty
@@ -103,9 +107,7 @@ export async function updateRoutine(c, routineId, body) {
             return sendValidationError(c, ['Invalid difficulty level']);
         }
         // Update routine
-        const { data: routine, error } = await supabase
-            .from('routines')
-            .update({
+        const updateData = {
             name,
             description,
             difficulty,
@@ -114,7 +116,10 @@ export async function updateRoutine(c, routineId, body) {
             is_public,
             schedule,
             updated_at: new Date().toISOString()
-        })
+        };
+        const { data: routine, error } = await supabase
+            .from('routines')
+            .update(updateData)
             .eq('id', routineId)
             .select()
             .single();
@@ -124,8 +129,9 @@ export async function updateRoutine(c, routineId, body) {
         return sendSuccess(c, routine, API_MESSAGES.UPDATED);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Update routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Delete routine
@@ -141,7 +147,8 @@ export async function deleteRoutine(c, routineId) {
         if (checkError || !existingRoutine) {
             return sendNotFound(c, API_MESSAGES.ROUTINE_NOT_FOUND);
         }
-        if (existingRoutine.user_id !== userId) {
+        const routineCheckDelete = existingRoutine;
+        if (routineCheckDelete.user_id !== userId) {
             return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to delete this routine', 403);
         }
         // Delete routine
@@ -155,8 +162,9 @@ export async function deleteRoutine(c, routineId) {
         return sendSuccess(c, null, API_MESSAGES.DELETED);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Delete routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get user routines
@@ -241,8 +249,9 @@ export async function searchRoutines(c, query, limit = 20, offset = 0) {
         return sendSuccess(c, routines, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Search routines error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Like routine
@@ -269,13 +278,14 @@ export async function likeRoutine(c, routineId) {
             return sendConflict(c, 'Routine already liked');
         }
         // Create like
-        const { data: like, error } = await supabase
-            .from('routine_likes')
-            .insert({
+        const likeData = {
             user_id: userId,
             routine_id: routineId,
             created_at: new Date().toISOString()
-        })
+        };
+        const { data: like, error } = await supabase
+            .from('routine_likes')
+            .insert(likeData)
             .select()
             .single();
         if (error) {
@@ -284,8 +294,9 @@ export async function likeRoutine(c, routineId) {
         return sendSuccess(c, like, 'Routine liked successfully');
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Like routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Unlike routine
@@ -304,8 +315,9 @@ export async function unlikeRoutine(c, routineId) {
         return sendSuccess(c, null, 'Routine unliked successfully');
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Unlike routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get routine likes
@@ -396,14 +408,15 @@ export async function startRoutine(c, routineId) {
             return sendConflict(c, 'Routine already started');
         }
         // Create routine start
-        const { data: routineStart, error } = await supabase
-            .from('routine_starts')
-            .insert({
+        const startData = {
             user_id: userId,
             routine_id: routineId,
             status: 'active',
             started_at: new Date().toISOString()
-        })
+        };
+        const { data: routineStart, error } = await supabase
+            .from('routine_starts')
+            .insert(startData)
             .select()
             .single();
         if (error) {
@@ -412,8 +425,9 @@ export async function startRoutine(c, routineId) {
         return sendSuccess(c, routineStart, 'Routine started successfully');
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Start routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Complete routine
@@ -431,25 +445,28 @@ export async function completeRoutine(c, routineId) {
         if (routineStartError || !routineStart) {
             return sendNotFound(c, 'Routine not started');
         }
+        const startCheck = routineStart;
         // Update routine start status
-        const { error: updateError } = await supabase
-            .from('routine_starts')
-            .update({
+        const updateData = {
             status: 'completed',
             completed_at: new Date().toISOString()
-        })
-            .eq('id', routineStart.id);
+        };
+        const { error: updateError } = await supabase
+            .from('routine_starts')
+            .update(updateData)
+            .eq('id', startCheck.id);
         if (updateError) {
             return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to complete routine', 500, updateError.message);
         }
         // Create routine completion
-        const { data: completion, error } = await supabase
-            .from('routine_completions')
-            .insert({
+        const completionData = {
             user_id: userId,
             routine_id: routineId,
             completed_at: new Date().toISOString()
-        })
+        };
+        const { data: completion, error } = await supabase
+            .from('routine_completions')
+            .insert(completionData)
             .select()
             .single();
         if (error) {
@@ -458,8 +475,9 @@ export async function completeRoutine(c, routineId) {
         return sendSuccess(c, completion, 'Routine completed successfully');
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Complete routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // List routines
@@ -467,7 +485,7 @@ export async function listRoutines(c, query = {}) {
     try {
         const userId = c.get('userId');
         const { page = 1, limit = 20, difficulty } = query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const offset = (page - 1) * limit;
         let queryBuilder = supabase
             .from('routines')
             .select('*', { count: 'exact' })
@@ -477,23 +495,28 @@ export async function listRoutines(c, query = {}) {
             queryBuilder = queryBuilder.eq('difficulty', difficulty);
         }
         const { data: routines, error, count } = await queryBuilder
-            .range(offset, offset + parseInt(limit) - 1);
+            .range(offset, offset + limit - 1);
         if (error) {
             return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to list routines', 500, error.message);
         }
         return sendSuccess(c, routines, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('List routines error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Share routine
 export async function shareRoutine(c, routineId, body) {
     try {
+        const updateData = {
+            is_public: true,
+            shared_at: new Date().toISOString()
+        };
         const { data: routine, error } = await supabase
             .from('routines')
-            .update({ is_public: true, shared_at: new Date().toISOString() })
+            .update(updateData)
             .eq('id', routineId)
             .select()
             .single();
@@ -503,8 +526,9 @@ export async function shareRoutine(c, routineId, body) {
         return sendSuccess(c, routine, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Share routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Use routine (alias for startRoutine)
@@ -525,9 +549,7 @@ export async function duplicateRoutine(c, routineId, body) {
             return sendNotFound(c, 'Routine not found');
         }
         // Create duplicate
-        const { data: duplicateRoutine, error: createError } = await supabase
-            .from('routines')
-            .insert({
+        const duplicateData = {
             user_id: userId,
             name: `${originalRoutine.name} (Copy)`,
             description: originalRoutine.description,
@@ -536,7 +558,10 @@ export async function duplicateRoutine(c, routineId, body) {
             days_per_week: originalRoutine.days_per_week,
             is_public: false,
             created_at: new Date().toISOString()
-        })
+        };
+        const { data: duplicateRoutine, error: createError } = await supabase
+            .from('routines')
+            .insert(duplicateData)
             .select()
             .single();
         if (createError) {
@@ -545,8 +570,9 @@ export async function duplicateRoutine(c, routineId, body) {
         return sendSuccess(c, duplicateRoutine, API_MESSAGES.ROUTINE_CREATED, 201);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Duplicate routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get routine exercises
@@ -563,8 +589,9 @@ export async function getRoutineExercises(c, routineId) {
         return sendSuccess(c, exercises, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get routine exercises error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Add exercise to routine
@@ -584,8 +611,9 @@ export async function addExerciseToRoutine(c, routineId, body) {
         return sendSuccess(c, exercise, API_MESSAGES.CREATED, 201);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Add exercise to routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Update routine exercise
@@ -604,8 +632,9 @@ export async function updateRoutineExercise(c, routineId, exerciseId, body) {
         return sendSuccess(c, exercise, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Update routine exercise error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Remove exercise from routine
@@ -622,8 +651,9 @@ export async function removeExerciseFromRoutine(c, routineId, exerciseId) {
         return sendSuccess(c, null, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Remove exercise from routine error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get routine categories
@@ -639,15 +669,16 @@ export async function getRoutineCategories(c) {
         return sendSuccess(c, categories, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get routine categories error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get trending routines
 export async function getTrendingRoutines(c, query = {}) {
     try {
         const { page = 1, limit = 20 } = query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const offset = (page - 1) * limit;
         const { data: routines, error, count } = await supabase
             .from('routines')
             .select('*', { count: 'exact' })
@@ -660,7 +691,8 @@ export async function getTrendingRoutines(c, query = {}) {
         return sendSuccess(c, routines, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get trending routines error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }

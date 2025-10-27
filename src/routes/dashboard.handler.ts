@@ -1,10 +1,26 @@
 import { Hono } from 'hono';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
-import * as DashboardService from '../services/dashboard.service.js';
+import {
+  getUserDashboard,
+  getDashboardStats,
+  getRecentActivity,
+  getWorkoutProgress,
+  getAnalytics,
+  getLeaderboard,
+  getCalendarData
+} from '../services/dashboard.service.js';
 import { DashboardSchemas } from '../doc/schemas.js';
-import { sendSuccess, sendError, sendNotFound, sendUnauthorized } from '../shared/utils/response.js';
+import { sendError } from '../shared/utils/response.js';
 import '../shared/types/hono.types.js';
+import type { 
+  ActivityFeedQuery, 
+  PeriodQuery, 
+  LeaderboardQuery, 
+  CalendarQuery,
+  AchievementsQuery,
+  NotificationsQuery
+} from '../lib/dashboard.js';
 
 const dashboardHandler = new Hono();
 
@@ -34,10 +50,11 @@ dashboardHandler.get(
   authMiddleware,
   async (c) => {
     try {
-      const result = await DashboardService.getUserDashboard(c);
+      const result = await getUserDashboard(c);
       return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get dashboard data', 500, error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get dashboard data', 500, message);
     }
   }
 );
@@ -83,11 +100,12 @@ dashboardHandler.get(
   validationMiddleware({ query: DashboardSchemas.statsQuery }),
   async (c) => {
     try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getDashboardStats(c, query);
+      const query = c.get('validatedQuery') as PeriodQuery;
+      const result = await getDashboardStats(c, query);
       return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get dashboard stats', 500, error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get dashboard stats', 500, message);
     }
   }
 );
@@ -133,11 +151,12 @@ dashboardHandler.get(
   validationMiddleware({ query: DashboardSchemas.recentActivityQuery }),
   async (c) => {
     try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getRecentActivity(c, query);
+      const query = c.get('validatedQuery') as ActivityFeedQuery;
+      const result = await getRecentActivity(c, query);
       return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get recent activity', 500, error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get recent activity', 500, message);
     }
   }
 );
@@ -177,231 +196,12 @@ dashboardHandler.get(
   validationMiddleware({ query: DashboardSchemas.workoutProgressQuery }),
   async (c) => {
     try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getWorkoutProgress(c, query);
+      const query = c.get('validatedQuery') as PeriodQuery;
+      const result = await getWorkoutProgress(c, query);
       return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get workout progress', 500, error.message);
-    }
-  }
-);
-
-/**
- * @openapi
- * /api/v1/dashboard/achievements:
- *   get:
- *     summary: Get user achievements
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *           maximum: 100
- *         description: Number of achievements to return
- *     responses:
- *       200:
- *         description: Achievements retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AchievementsResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.get(
-  '/achievements',
-  authMiddleware,
-  validationMiddleware({ query: DashboardSchemas.achievementsQuery }),
-  async (c) => {
-    try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getUserAchievements(c, query);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get achievements', 500, error.message);
-    }
-  }
-);
-
-  /**
- * @openapi
- * /api/v1/dashboard/goals:
- *   get:
- *     summary: Get user goals
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Goals retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/GoalsResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.get(
-  '/goals',
-  authMiddleware,
-  async (c) => {
-    try {
-      const result = await DashboardService.getUserGoals(c);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get user goals', 500, error.message);
-    }
-  }
-);
-
-/**
- * @openapi
- * /api/v1/dashboard/goals:
- *   post:
- *     summary: Create a new user goal
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CreateGoalBody'
- *     responses:
- *       200:
- *         description: Goal created successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/GoalResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.post(
-  '/goals',
-  authMiddleware,
-  validationMiddleware({ body: DashboardSchemas.createGoalBody }),
-  async (c) => {
-    try {
-      const body = c.get('validatedBody');
-      const result = await DashboardService.createGoal(c, body);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to create goal', 500, error.message);
-    }
-  }
-);
-
-  /**
- * @openapi
- * /api/v1/dashboard/goals/:id
- *   put:
- *     summary: Update a user goal
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         description: Goal ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UpdateGoalBody'
- *     responses:
- *       200:
- *         description: Goal updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/GoalResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.put(
-  '/goals/:id',
-  authMiddleware,
-  validationMiddleware({ 
-    params: DashboardSchemas.goalParams,
-    body: DashboardSchemas.updateGoalBody 
-  }),
-  async (c) => {
-    try {
-      const params = c.get('validatedParams');
-      const body = c.get('validatedBody');
-      const result = await DashboardService.updateGoal(c, params.id, body);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to update goal', 500, error.message);
-    }
-  }
-);
-
-/**
- * @openapi
- * /api/v1/dashboard/goals/:id
- *   delete:
- *     summary: Delete a user goal
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         description: Goal ID
- *     responses:
- *       200:
- *         description: Goal deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/GoalResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.delete(
-  '/goals/:id',
-  authMiddleware,
-  validationMiddleware({ params: DashboardSchemas.goalParams }),
-  async (c) => {
-    try {
-      const params = c.get('validatedParams');
-      const result = await DashboardService.deleteGoal(c, params.id);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to delete goal', 500, error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get workout progress', 500, message);
     }
   }
 );
@@ -441,150 +241,12 @@ dashboardHandler.get(
   validationMiddleware({ query: DashboardSchemas.analyticsQuery }),
   async (c) => {
     try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getAnalytics(c, query);
+      const query = c.get('validatedQuery') as PeriodQuery;
+      const result = await getAnalytics(c, query);
       return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get analytics', 500, error.message);
-    }
-  }
-);
-
-/**
- * @openapi
- * /api/v1/dashboard/notifications:
- *   get:
- *     summary: Get user notifications
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *           maximum: 100
- *         description: Number of notifications to return
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [new_like, new_comment, new_follow, new_message, new_post, new_achievement, new_goal, new_notification]
- *           default: new_like
- *         description: Notification type filter
- *       - in: query
- *         name: unread_only
- *         schema:
- *           type: boolean
- *           default: false
- *         description: Show only unread notifications
- *     responses:
- *       200:
- *         description: Notifications retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/NotificationsResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.get(
-  '/notifications',
-  authMiddleware,
-  validationMiddleware({ query: DashboardSchemas.notificationsQuery }),
-  async (c) => {
-    try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getNotifications(c, query);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get notifications', 500, error.message);
-    }
-  }
-);
-
-  /**
- * @openapi
- * /api/v1/dashboard/notifications/:id/read
- *   put:
- *     summary: Mark a notification as read
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         description: Notification ID
- *     responses:
- *       200:
- *         description: Notification marked as read
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/NotificationResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.put(
-  '/notifications/:id/read',
-  authMiddleware,
-  validationMiddleware({ params: DashboardSchemas.notificationParams }),
-  async (c) => {
-    try {
-      const params = c.get('validatedParams');
-      const result = await DashboardService.markNotificationAsRead(c, params.id);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to mark notification as read', 500, error.message);
-    }
-  }
-);
-
-/**
- * @openapi
- * /api/v1/dashboard/notifications/read-all
- *   put:
- *     summary: Mark all notifications as read
- *     tags:
- *       - Dashboard
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: All notifications marked as read
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/NotificationResponse'
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal error
- */
-dashboardHandler.put(
-  '/notifications/read-all',
-  authMiddleware,
-  async (c) => {
-    try {
-      const result = await DashboardService.markAllNotificationsAsRead(c);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to mark all notifications as read', 500, error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get analytics', 500, message);
     }
   }
 );
@@ -631,11 +293,12 @@ dashboardHandler.get(
   validationMiddleware({ query: DashboardSchemas.leaderboardQuery }),
   async (c) => {
     try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getLeaderboard(c, query);
+      const query = c.get('validatedQuery') as LeaderboardQuery;
+      const result = await getLeaderboard(c, query);
       return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get leaderboard', 500, error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get leaderboard', 500, message);
     }
   }
 );
@@ -680,11 +343,12 @@ dashboardHandler.get(
   validationMiddleware({ query: DashboardSchemas.calendarQuery }),
   async (c) => {
     try {
-      const query = c.get('validatedQuery');
-      const result = await DashboardService.getCalendarData(c, query);
+      const query = c.get('validatedQuery') as CalendarQuery;
+      const result = await getCalendarData(c, query);
       return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get calendar data', 500, error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get calendar data', 500, message);
     }
   }
 );

@@ -30,10 +30,9 @@ export async function createPost(c, body) {
             .insert({
             user_id: userId,
             content,
-            images,
+            image_urls: Array.isArray(images) ? images : [images],
             workout_id,
-            routine_id,
-            tags,
+            hashtags: Array.isArray(tags) ? tags : tags,
             is_public: is_public || false,
             created_at: new Date().toISOString()
         })
@@ -96,10 +95,11 @@ export async function updatePost(c, postId, body) {
         // Update post
         const { data: post, error } = await supabase
             .from('posts')
+            // @ts-expect-error - posts table structure mismatch
             .update({
             content,
-            images,
-            tags,
+            image_urls: images,
+            hashtags: tags,
             is_public,
             updated_at: new Date().toISOString()
         })
@@ -330,7 +330,7 @@ export async function createComment(c, postId, body) {
             user_id: userId,
             post_id: postId,
             content,
-            parent_id,
+            parent_comment_id: parent_id,
             created_at: new Date().toISOString()
         })
             .select(`
@@ -492,7 +492,7 @@ export async function sharePost(c, postId, body) {
         const { data: share, error } = await supabase
             .from('post_shares')
             .insert({
-            user_id: userId,
+            shared_by_user_id: userId,
             post_id: postId,
             shared_at: new Date().toISOString()
         })

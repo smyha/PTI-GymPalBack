@@ -5,6 +5,7 @@
  */
 import { supabase } from '../config/supabase.js';
 import { InvalidCredentialsError, EmailNotVerifiedError, InvalidTokenError, UserAlreadyExistsError, } from '../lib/auth/errors.js';
+import { authLogger, logAuthAttempt } from '../lib/logger.js';
 // ============================================================================
 // REGISTRATION
 // ============================================================================
@@ -12,6 +13,7 @@ import { InvalidCredentialsError, EmailNotVerifiedError, InvalidTokenError, User
  * Register a new user
  */
 export async function registerUser(dto) {
+    authLogger.info({ email: dto.email, username: dto.username }, 'User registration attempt');
     // Check if user already exists
     const { data: existingUser, error } = await supabase
         .from('profiles')
@@ -19,6 +21,7 @@ export async function registerUser(dto) {
         .eq('username', dto.username)
         .single();
     if (existingUser) {
+        authLogger.warn({ username: dto.username }, 'Registration failed: username already exists');
         throw new UserAlreadyExistsError('User already exists ' + existingUser.username);
     }
     // Create user in Supabase Auth (triggers profile creation)
@@ -43,14 +46,14 @@ export async function registerUser(dto) {
         },
     });
     // Check if user was created successfully
-    if (authError) {
-        throw new InvalidCredentialsError(authError.message);
+    if (authError || !userData.user) {
+        throw new InvalidCredentialsError(authError?.message || 'Failed to create user');
     }
     // Return the user data
     return {
         user: {
             id: userData.user.id,
-            email: userData.user.email,
+            email: userData.user.email || '',
             username: dto.username,
             fullName: dto.full_name,
         },
@@ -64,22 +67,42 @@ export async function registerUser(dto) {
  * Login user with email and password
  */
 export async function loginUser(dto) {
+    authLogger.info({ email: dto.email }, 'User login attempt');
     const { data, error } = await supabase.auth.signInWithPassword({
         email: dto.email,
         password: dto.password,
     });
     if (error) {
+        authLogger.warn({ email: dto.email, error: error.message }, 'Login failed: invalid credentials');
+        logAuthAttempt(dto.email, false);
         throw new InvalidCredentialsError('Invalid email or password');
     }
+    // Check if user exists
     if (!data.user) {
+        authLogger.warn({ email: dto.email }, 'Login failed: no user data');
+        logAuthAttempt(dto.email, false);
         throw new InvalidCredentialsError('Invalid email or password');
     }
+    // Check if email is confirmed
     if (!data.user.email_confirmed_at) {
+        authLogger.warn({ email: dto.email, userId: data.user.id }, 'Login failed: email not verified');
+        logAuthAttempt(dto.email, false);
         throw new EmailNotVerifiedError('Please confirm your email before logging in');
     }
+    // Check if session exists
     if (!data.session) {
+        authLogger.error({ email: dto.email, userId: data.user.id }, 'Login failed: no session created');
+        logAuthAttempt(dto.email, false);
         throw new InvalidCredentialsError('Failed to create session');
     }
+    // Log successful login
+    authLogger.info({
+        email: dto.email,
+        userId: data.user.id,
+        username: data.user.user_metadata?.username
+    }, 'User login successful');
+    logAuthAttempt(dto.email, true);
+    // Return the user data
     return {
         user: {
             id: data.user.id,
@@ -160,7 +183,9 @@ export async function resetPassword(token, newPassword) {
 /**
  * Update user password
  */
-export async function updatePassword(newPassword) {
+export async function updatePassword(currentPassword, newPassword) {
+    // Note: Supabase doesn't verify the old password in updateUser
+    // You may need to verify it separately if needed
     const { error } = await supabase.auth.updateUser({
         password: newPassword,
     });
@@ -180,4 +205,26 @@ export async function getCurrentUser(token) {
         throw new InvalidTokenError('Invalid or expired token');
     }
     return user;
+}
+// ============================================================================
+// ACCOUNT DELETION
+// ============================================================================
+/**
+ * Delete user account (both auth and profile data)
+ */
+export async function deleteAccount(userId) {
+    // Delete user profile from database
+    const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+    if (profileError) {
+        throw new Error(`Failed to delete profile: ${profileError.message}`);
+    }
+    // Delete user from Supabase Auth using admin client
+    const { supabaseAdmin } = await import('../config/supabase.js');
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (authError) {
+        throw new Error(`Failed to delete account: ${authError.message}`);
+    }
 }

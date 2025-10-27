@@ -1,5 +1,10 @@
 # Configuration files to exclude
 .gitignore
+.cursor/
+.taskmaster/
+.claude
+.cursor/rules/taskmaster/
+
 tsup.config.ts
 .eslintrc.json
 .prettierrc.json

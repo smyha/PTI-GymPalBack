@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
-import * as PersonalService from '../services/personal.service.js';
+import { getCompletePersonalData, getPersonalInfo, upsertPersonalInfo, getFitnessProfile, upsertFitnessProfile } from '../services/personal.service.js';
 import { z } from 'zod';
 const personal = new Hono();
 // ============================================================================
@@ -44,7 +44,7 @@ const FitnessProfileSchema = z.object({
  *         description: Unauthorized
  */
 personal.get('/', authMiddleware, async (c) => {
-    return PersonalService.getCompletePersonalData(c);
+    return getCompletePersonalData(c);
 });
 /**
  * @openapi
@@ -59,7 +59,7 @@ personal.get('/', authMiddleware, async (c) => {
  *         description: Personal physical information
  */
 personal.get('/info', authMiddleware, async (c) => {
-    return PersonalService.getPersonalInfo(c);
+    return getPersonalInfo(c);
 });
 /**
  * @openapi
@@ -98,7 +98,7 @@ personal.get('/info', authMiddleware, async (c) => {
  */
 personal.put('/info', authMiddleware, validationMiddleware({ body: PersonalInfoSchema }), async (c) => {
     const body = c.get('validatedBody');
-    return PersonalService.upsertPersonalInfo(c, body);
+    return upsertPersonalInfo(c, body);
 });
 /**
  * @openapi
@@ -113,7 +113,7 @@ personal.put('/info', authMiddleware, validationMiddleware({ body: PersonalInfoS
  *         description: Fitness profile data
  */
 personal.get('/fitness', authMiddleware, async (c) => {
-    return PersonalService.getFitnessProfile(c);
+    return getFitnessProfile(c);
 });
 /**
  * @openapi
@@ -173,6 +173,6 @@ personal.get('/fitness', authMiddleware, async (c) => {
  */
 personal.put('/fitness', authMiddleware, validationMiddleware({ body: FitnessProfileSchema }), async (c) => {
     const body = c.get('validatedBody');
-    return PersonalService.upsertFitnessProfile(c, body);
+    return upsertFitnessProfile(c, body);
 });
 export default personal;

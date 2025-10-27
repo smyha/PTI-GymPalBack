@@ -52,7 +52,8 @@ export async function createWorkout(c, body) {
     }
     catch (error) {
         console.error('Create workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get workout by ID
@@ -75,7 +76,8 @@ export async function getWorkout(c, workoutId) {
     }
     catch (error) {
         console.error('Get workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Update workout
@@ -92,7 +94,8 @@ export async function updateWorkout(c, workoutId, body) {
         if (checkError || !existingWorkout) {
             return sendNotFound(c, API_MESSAGES.WORKOUT_NOT_FOUND);
         }
-        if (existingWorkout.user_id !== userId) {
+        const existingWorkoutData = existingWorkout;
+        if (existingWorkoutData.user_id !== userId) {
             return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to update this workout', 403);
         }
         // Validate difficulty
@@ -127,7 +130,8 @@ export async function updateWorkout(c, workoutId, body) {
     }
     catch (error) {
         console.error('Update workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Delete workout
@@ -143,7 +147,8 @@ export async function deleteWorkout(c, workoutId) {
         if (checkError || !existingWorkout) {
             return sendNotFound(c, API_MESSAGES.WORKOUT_NOT_FOUND);
         }
-        if (existingWorkout.user_id !== userId) {
+        const existingWorkoutData = existingWorkout;
+        if (existingWorkoutData.user_id !== userId) {
             return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to delete this workout', 403);
         }
         // Delete workout
@@ -158,7 +163,8 @@ export async function deleteWorkout(c, workoutId) {
     }
     catch (error) {
         console.error('Delete workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get user workouts
@@ -182,7 +188,8 @@ export async function getUserWorkouts(c, userId, limit = 20, offset = 0) {
     }
     catch (error) {
         console.error('Get user workouts error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get public workouts
@@ -219,7 +226,8 @@ export async function getPublicWorkouts(c, limit = 20, offset = 0, difficulty, t
     }
     catch (error) {
         console.error('Get public workouts error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Search workouts
@@ -244,7 +252,8 @@ export async function searchWorkouts(c, query, limit = 20, offset = 0) {
     }
     catch (error) {
         console.error('Search workouts error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Like workout
@@ -287,7 +296,8 @@ export async function likeWorkout(c, workoutId) {
     }
     catch (error) {
         console.error('Like workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Unlike workout
@@ -307,7 +317,8 @@ export async function unlikeWorkout(c, workoutId) {
     }
     catch (error) {
         console.error('Unlike workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get workout likes
@@ -331,7 +342,8 @@ export async function getWorkoutLikes(c, workoutId, limit = 20, offset = 0) {
     }
     catch (error) {
         console.error('Get workout likes error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get workout statistics
@@ -370,7 +382,8 @@ export async function getWorkoutStats(c, workoutId) {
     }
     catch (error) {
         console.error('Get workout stats error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // List workouts
@@ -396,7 +409,8 @@ export async function listWorkouts(c, query = {}) {
     }
     catch (error) {
         console.error('List workouts error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get workout exercises
@@ -414,7 +428,8 @@ export async function getWorkoutExercises(c, workoutId) {
     }
     catch (error) {
         console.error('Get workout exercises error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Add exercise to workout
@@ -435,7 +450,8 @@ export async function addExerciseToWorkout(c, workoutId, body) {
     }
     catch (error) {
         console.error('Add exercise to workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Update workout exercise
@@ -443,6 +459,7 @@ export async function updateWorkoutExercise(c, workoutId, exerciseId, body) {
     try {
         const { data: exercise, error } = await supabase
             .from('workout_exercises')
+            // @ts-expect-error - type mismatch
             .update(body)
             .eq('workout_id', workoutId)
             .eq('id', exerciseId)
@@ -455,7 +472,8 @@ export async function updateWorkoutExercise(c, workoutId, exerciseId, body) {
     }
     catch (error) {
         console.error('Update workout exercise error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Remove exercise from workout
@@ -473,7 +491,8 @@ export async function removeExerciseFromWorkout(c, workoutId, exerciseId) {
     }
     catch (error) {
         console.error('Remove exercise from workout error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Start workout session
@@ -498,7 +517,8 @@ export async function startWorkoutSession(c, workoutId, body) {
     }
     catch (error) {
         console.error('Start workout session error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Complete workout session
@@ -506,6 +526,7 @@ export async function completeWorkoutSession(c, sessionId, body) {
     try {
         const { data: session, error } = await supabase
             .from('workout_sessions')
+            // @ts-expect-error - type mismatch
             .update({
             completed_at: new Date().toISOString(),
             status: 'completed',
@@ -521,7 +542,8 @@ export async function completeWorkoutSession(c, sessionId, body) {
     }
     catch (error) {
         console.error('Complete workout session error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // List workout sessions
@@ -543,7 +565,8 @@ export async function listWorkoutSessions(c, query = {}) {
     }
     catch (error) {
         console.error('List workout sessions error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get workout session
@@ -561,7 +584,8 @@ export async function getWorkoutSession(c, sessionId) {
     }
     catch (error) {
         console.error('Get workout session error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Update workout session
@@ -569,6 +593,7 @@ export async function updateWorkoutSession(c, sessionId, body) {
     try {
         const { data: session, error } = await supabase
             .from('workout_sessions')
+            // @ts-expect-error - type mismatch
             .update(body)
             .eq('id', sessionId)
             .select()
@@ -580,7 +605,8 @@ export async function updateWorkoutSession(c, sessionId, body) {
     }
     catch (error) {
         console.error('Update workout session error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Delete workout session
@@ -597,6 +623,7 @@ export async function deleteWorkoutSession(c, sessionId) {
     }
     catch (error) {
         console.error('Delete workout session error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }

@@ -3,6 +3,7 @@ import { supabase, supabaseAdmin } from '../config/supabase.js';
 import { sendSuccess, sendError, sendNotFound, sendValidationError, sendConflict } from '../shared/utils/response.js';
 import { API_MESSAGES, ERROR_CODES } from '../shared/constants/index.js';
 import { processAvatarForUpdate } from '../shared/utils/avatar.utils.js';
+import { apiLogger, logError } from '../lib/logger.js';
 
 // Get user profile by ID
 export async function getUserProfile(c: Context) {
@@ -25,7 +26,8 @@ export async function getUserById(c: Context, userId: string) {
     return sendSuccess(c, profile, API_MESSAGES.SUCCESS);
 
   } catch (error: any) {
-    console.error('Get user profile error:', error);
+    apiLogger.error({ error: error.message, userId }, 'Get user profile error');
+    logError(error as Error, { service: 'user', operation: 'getUserById', userId });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }
@@ -71,7 +73,7 @@ export async function updateProfile(c: Context, body: any) {
       .single();
 
     // Process avatar URL - assign default if not provided or invalid
-    const processedAvatarUrl = processAvatarForUpdate(avatar_url, currentProfile);
+    const processedAvatarUrl = processAvatarForUpdate(avatar_url, currentProfile || undefined);
 
     // Update profile
     const { data: profile, error } = await supabase
@@ -86,7 +88,7 @@ export async function updateProfile(c: Context, body: any) {
         timezone,
         language,
         updated_at: new Date().toISOString()
-      })
+      } as never)
       .eq('id', userId)
       .select()
       .single();
@@ -99,10 +101,10 @@ export async function updateProfile(c: Context, body: any) {
           user_id: userId,
           height_cm: height,
           weight_kg: weight
-        });
+        } as never);
       
       if (personalInfoError) {
-        console.error('Failed to update personal info:', personalInfoError);
+        apiLogger.error({ error: personalInfoError.message }, 'Failed to update personal info');
       }
     }
 
@@ -113,7 +115,9 @@ export async function updateProfile(c: Context, body: any) {
     return sendSuccess(c, profile, API_MESSAGES.UPDATED);
 
   } catch (error: any) {
-    console.error('Update profile error:', error);
+    const userId = c.get('userId');
+    apiLogger.error({ error: error.message, userId }, 'Update profile error');
+    logError(error as Error, { service: 'user', operation: 'updateProfile', userId });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }
@@ -137,7 +141,9 @@ export async function getUserSettings(c: Context) {
     return sendSuccess(c, settings, API_MESSAGES.SUCCESS);
 
   } catch (error: any) {
-    console.error('Get user settings error:', error);
+    const userId = c.get('userId');
+    apiLogger.error({ error: error.message, userId }, 'Get user settings error');
+    logError(error as Error, { service: 'user', operation: 'getUserSettings', userId });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }
@@ -211,7 +217,7 @@ export async function updateUserSettings(c: Context, body: any) {
         workout_visibility: privacy_settings?.workouts_public,
         progress_visibility: privacy_settings?.posts_public,
         updated_at: new Date().toISOString()
-      })
+      } as never)
       .select('*')
       .single();
 
@@ -222,7 +228,9 @@ export async function updateUserSettings(c: Context, body: any) {
     return sendSuccess(c, settings, API_MESSAGES.UPDATED);
 
   } catch (error: any) {
-    console.error('Update user settings error:', error);
+    const userId = c.get('userId');
+    apiLogger.error({ error: error.message, userId }, 'Update user settings error');
+    logError(error as Error, { service: 'user', operation: 'updateUserSettings', userId });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }
@@ -252,7 +260,9 @@ export async function deleteAccount(c: Context, body?: any) {
     return sendSuccess(c, null, 'Account deleted successfully');
 
   } catch (error: any) {
-    console.error('Delete account error:', error);
+    const userId = c.get('userId');
+    apiLogger.error({ error: error.message, userId }, 'Delete account error');
+    logError(error as Error, { service: 'user', operation: 'deleteAccount', userId });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }
@@ -303,7 +313,9 @@ export async function getUserStats(c: Context, targetUserId?: string) {
     return sendSuccess(c, stats, API_MESSAGES.SUCCESS);
 
   } catch (error: any) {
-    console.error('Get user stats error:', error);
+    const userId = targetUserId || c.get('userId');
+    apiLogger.error({ error: error.message, userId }, 'Get user stats error');
+    logError(error as Error, { service: 'user', operation: 'getUserStats', userId });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }
@@ -318,13 +330,16 @@ export async function searchUsers(c: Context, query: string, limit: number = 10,
       .range(offset, offset + limit - 1);
 
     if (error) {
+      apiLogger.error({ error: error.message }, 'Database error in searchUsers');
       return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to search users', 500, error.message);
     }
 
+    // Return empty array if no users found, not an error
     return sendSuccess(c, users || [], API_MESSAGES.SUCCESS);
 
   } catch (error: any) {
-    console.error('Search users error:', error);
+    apiLogger.error({ error: error.message }, 'Search users error');
+    logError(error as Error, { service: 'user', operation: 'searchUsers' });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }
@@ -350,7 +365,8 @@ export async function getUserAchievements(c: Context, userId: string, query: any
     return sendSuccess(c, achievements, API_MESSAGES.SUCCESS);
 
   } catch (error: any) {
-    console.error('Get user achievements error:', error);
+    apiLogger.error({ error: error.message, userId }, 'Get user achievements error');
+    logError(error as Error, { service: 'user', operation: 'getUserAchievements', userId });
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
   }
 }

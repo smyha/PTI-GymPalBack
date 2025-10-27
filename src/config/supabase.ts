@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { env } from './env.js';
-import type { Database } from '../shared/types/database.js';
+import type { Database } from '../shared/types/database.types.js';
 
 // ============================================================================
 // SUPABASE CLIENTS
@@ -9,10 +9,8 @@ import type { Database } from '../shared/types/database.js';
 /**
  * Supabase client for client-side operations (with anon key)
  * Used for user-facing operations that require authentication
- *
- * @ts-ignore - Database types cause complex inference issues, using any for now
  */
-export const supabase = createClient(
+export const supabase: SupabaseClient<Database> = createClient<Database>(
   env.SUPABASE_URL,
   env.SUPABASE_ANON_KEY,
   {
@@ -22,15 +20,13 @@ export const supabase = createClient(
       detectSessionInUrl: true,
     },
   }
-) as any;
+);
 
 /**
  * Supabase admin client for server-side operations (with service role key)
  * Used for administrative operations that bypass RLS
- *
- * @ts-ignore - Database types cause complex inference issues, using any for now
  */
-export const supabaseAdmin = createClient(
+export const supabaseAdmin: SupabaseClient<Database> = createClient<Database>(
   env.SUPABASE_URL,
   env.SUPABASE_SERVICE_KEY,
   {
@@ -39,5 +35,4 @@ export const supabaseAdmin = createClient(
       persistSession: false,
     },
   }
-) as any;
-
+);

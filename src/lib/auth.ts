@@ -10,6 +10,7 @@ import { supabase } from '../config/supabase.js';
 // TYPES
 // ============================================================================
 
+// RegisterUserDTO
 export interface RegisterUserDTO {
   email: string;
   password: string;
@@ -26,11 +27,13 @@ export interface RegisterUserDTO {
   language?: string;
 }
 
+// LoginUserDTO
 export interface LoginUserDTO {
   email: string;
   password: string;
 }
 
+// AuthResponse
 export interface AuthResponse {
   user: any;
   token?: string;
@@ -49,13 +52,16 @@ export interface AuthResponse {
  * @returns The extracted token or null
  */
 export const extractToken = (authHeader: string | undefined): string | null => {
+  // If no auth header, return null
   if (!authHeader) return null;
 
   const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    // If not a valid Bearer token, return null
     return null;
   }
 
+  // Return the token
   return parts[1];
 };
 
@@ -69,12 +75,15 @@ export const verifySupabaseToken = async (token: string) => {
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
+      // If there is an error or no user, return null
       return null;
     }
 
+    // Return the user
     return user;
   } catch (error) {
     console.error('Token verification failed:', error);
+    // If there is an error, return null
     return null;
   }
 };

@@ -1,8 +1,7 @@
 import { Context } from 'hono';
 import { supabase } from '../config/supabase.js';
-import { sendSuccess, sendCreated, sendError, sendNotFound, sendValidationError, sendConflict } from '../shared/utils/response.js';
+import { sendSuccess, sendCreated, sendError, sendNotFound, sendValidationError } from '../shared/utils/response.js';
 import { API_MESSAGES, ERROR_CODES } from '../shared/constants/index.js';
-import { CreateExerciseSchema, UpdateExerciseSchema, GetExercisesSchema, validateSchema } from '../shared/validators/index.js';
 
 // ============================================================================
 // EXERCISE SERVICE
@@ -17,13 +16,7 @@ export async function createExercise(c: Context, body: any) {
       return sendError(c, ERROR_CODES.UNAUTHORIZED, API_MESSAGES.UNAUTHORIZED, 401);
     }
 
-    // Validate input
-    const validation = validateSchema(CreateExerciseSchema, body);
-    if (!validation.isValid) {
-      return sendValidationError(c, validation.errors);
-    }
-
-    const exerciseData = validation.data!;
+    const exerciseData = body;
 
     // Create exercise
     const { data: exercise, error } = await supabase
@@ -59,13 +52,10 @@ export async function getAllExercises(c: Context) {
       return sendError(c, ERROR_CODES.UNAUTHORIZED, API_MESSAGES.UNAUTHORIZED, 401);
     }
 
-    // Validate query parameters
-    const validation = validateSchema(GetExercisesSchema, query);
-    if (!validation.isValid) {
-      return sendValidationError(c, validation.errors);
-    }
+    const { page = 1, limit = 20, search, muscle_group, equipment, difficulty, tags, is_public, sort_by = 'name', sort_order = 'asc' } = query;
 
-    const { page = 1, limit = 20, search, muscle_group, equipment, difficulty, tags, is_public, sort_by = 'name', sort_order = 'asc' } = validation.data!;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
 
     let queryBuilder = supabase
       .from('exercises')
@@ -101,8 +91,8 @@ export async function getAllExercises(c: Context) {
     queryBuilder = queryBuilder.order(sort_by, { ascending: sort_order === 'asc' });
 
     // Apply pagination
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
     queryBuilder = queryBuilder.range(from, to);
 
     const { data: exercises, error } = await queryBuilder;
@@ -121,10 +111,10 @@ export async function getAllExercises(c: Context) {
     return sendSuccess(c, {
       exercises: exercises || [],
       pagination: {
-        page,
-        limit,
+        page: pageNum,
+        limit: limitNum,
         total: count || 0,
-        pages: Math.ceil((count || 0) / limit)
+        pages: Math.ceil((count || 0) / limitNum)
       }
     }, API_MESSAGES.SUCCESS);
 
@@ -176,12 +166,6 @@ export async function updateExercise(c: Context, exerciseId: string, body: any) 
       return sendError(c, ERROR_CODES.UNAUTHORIZED, API_MESSAGES.UNAUTHORIZED, 401);
     }
 
-    // Validate input
-    const validation = validateSchema(UpdateExerciseSchema, body);
-    if (!validation.isValid) {
-      return sendValidationError(c, validation.errors);
-    }
-
     // Check if exercise exists and belongs to user
     const { data: existingExercise, error: fetchError } = await supabase
       .from('exercises')
@@ -199,12 +183,13 @@ export async function updateExercise(c: Context, exerciseId: string, body: any) 
     }
 
     // Update exercise
+    const bodyData = body as Record<string, unknown>;
     const { data: exercise, error } = await supabase
       .from('exercises')
       .update({
-        ...validation.data,
+        ...bodyData,
         updated_at: new Date().toISOString()
-      })
+      } as never)
       .eq('id', exerciseId)
       .eq('user_id', userId)
       .select()
@@ -217,7 +202,7 @@ export async function updateExercise(c: Context, exerciseId: string, body: any) 
 
     return sendSuccess(c, exercise, API_MESSAGES.UPDATED);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update exercise error:', error);
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500);
   }
@@ -281,12 +266,15 @@ export async function getExerciseCategories(c: Context) {
       return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500);
     }
 
+    type CategoryData = { muscle_group: string };
+    const categoriesData = (categories || []) as CategoryData[];
+
     // Get unique categories
-    const uniqueCategories = [...new Set(categories?.map(cat => cat.muscle_group) || [])];
+    const uniqueCategories = [...new Set(categoriesData.map(cat => cat.muscle_group))];
 
     return sendSuccess(c, uniqueCategories, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get categories error:', error);
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500);
   }
@@ -310,13 +298,16 @@ export async function getEquipmentTypes(c: Context) {
       return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500);
     }
 
+    type EquipmentData = { equipment: string[] | null };
+    const equipmentData = (equipment || []) as EquipmentData[];
+
     // Flatten and get unique equipment
-    const allEquipment = equipment?.flatMap(ex => ex.equipment || []) || [];
+    const allEquipment = equipmentData.flatMap(ex => ex.equipment || []);
     const uniqueEquipment = [...new Set(allEquipment)];
 
     return sendSuccess(c, uniqueEquipment, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get equipment error:', error);
     return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500);
   }

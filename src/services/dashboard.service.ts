@@ -1,7 +1,16 @@
 import { Context } from 'hono';
-import { supabase, supabaseAdmin } from '../config/supabase.js';
+import { supabase } from '../config/supabase.js';
 import { sendSuccess, sendError, sendNotFound } from '../shared/utils/response.js';
 import { API_MESSAGES, ERROR_CODES } from '../shared/constants/index.js';
+import type { 
+  NotificationsQuery, 
+  ActivityFeedQuery, 
+  PeriodQuery, 
+  AchievementsQuery, 
+  LeaderboardQuery, 
+  CalendarQuery,
+} from '../lib/dashboard.js';
+import type { Database } from '../shared/types/database.types.js';
 
 // Get dashboard overview
 export async function getDashboardOverview(c: Context) {
@@ -157,24 +166,33 @@ export async function getWorkoutStats(c: Context, period: string = 'week') {
       return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get workout stats', 500, workoutsError.message);
     }
 
+    type WorkoutStats = {
+      id: string;
+      name: string;
+      duration: number | null;
+      difficulty: string | null;
+      created_at: string;
+    };
+
     // Calculate statistics
-    const totalWorkouts = workouts?.length || 0;
-    const totalDuration = workouts?.reduce((sum, workout) => sum + (workout.duration || 0), 0) || 0;
+    const workoutsData = (workouts || []) as WorkoutStats[];
+    const totalWorkouts = workoutsData.length;
+    const totalDuration = workoutsData.reduce((sum, workout) => sum + (workout.duration || 0), 0);
     const avgDuration = totalWorkouts > 0 ? totalDuration / totalWorkouts : 0;
 
     // Group by difficulty
-    const difficultyStats = workouts?.reduce((acc, workout) => {
+    const difficultyStats = workoutsData.reduce((acc, workout) => {
       const difficulty = workout.difficulty || 'unknown';
       acc[difficulty] = (acc[difficulty] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>) || {};
+    }, {} as Record<string, number>);
 
     // Group by day
-    const dailyStats = workouts?.reduce((acc, workout) => {
+    const dailyStats = workoutsData.reduce((acc, workout) => {
       const date = new Date(workout.created_at).toISOString().split('T')[0];
       acc[date] = (acc[date] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>) || {};
+    }, {} as Record<string, number>);
 
     const stats = {
       period,
@@ -187,9 +205,10 @@ export async function getWorkoutStats(c: Context, period: string = 'week') {
 
     return sendSuccess(c, stats, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Get workout stats error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
   }
 }
 
@@ -222,7 +241,9 @@ export async function getSocialStats(c: Context) {
       .select('id')
       .eq('user_id', userId);
 
-    const postIds = posts?.map(p => p.id) || [];
+    type PostId = { id: string };
+    const postsData = (posts || []) as PostId[];
+    const postIds = postsData.map(p => p.id);
 
     let totalLikes = 0;
     if (postIds.length > 0) {
@@ -267,16 +288,18 @@ export async function getSocialStats(c: Context) {
 
     return sendSuccess(c, stats, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Get social stats error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
   }
 }
 
 // Get activity feed
-export async function getActivityFeed(c: Context, limit: number = 20, offset: number = 0) {
+export async function getActivityFeed(c: Context, query: ActivityFeedQuery = {}) {
   try {
     const userId = c.get('userId');
+    const { limit = 20, offset = 0 } = query;
 
     // Get posts from users that the current user follows
     const { data: posts, error: postsError } = await supabase
@@ -295,9 +318,20 @@ export async function getActivityFeed(c: Context, limit: number = 20, offset: nu
       return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get activity feed', 500, postsError.message);
     }
 
+    type PostData = {
+      id: string;
+      content: string;
+      images: unknown[] | null;
+      created_at: string;
+      workout_id: string | null;
+      routine_id: string | null;
+      profiles: unknown;
+    };
+
     // Get likes and comments for each post
+    const postsData = (posts || []) as PostData[];
     const postsWithStats = await Promise.all(
-      (posts || []).map(async (post) => {
+      postsData.map(async (post) => {
         // Get like count
         const { count: likeCount } = await supabase
           .from('post_likes')
@@ -331,125 +365,10 @@ export async function getActivityFeed(c: Context, limit: number = 20, offset: nu
 
     return sendSuccess(c, postsWithStats, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Get activity feed error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Get notifications
-export async function getNotifications(c: Context, limit: number = 20, offset: number = 0) {
-  try {
-    const userId = c.get('userId');
-
-    // Get notifications
-    const { data: notifications, error } = await supabase
-      .from('notifications')
-      .select(`
-        id, type, title, message, data, read, created_at,
-        profiles!notifications_from_user_id_fkey (
-          id, username, full_name, avatar_url
-        )
-      `)
-      .eq('user_id', userId)
-      .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get notifications', 500, error.message);
-    }
-
-    return sendSuccess(c, notifications, API_MESSAGES.SUCCESS);
-
-  } catch (error: any) {
-    console.error('Get notifications error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Mark notification as read
-export async function markNotificationAsRead(c: Context, notificationId: string) {
-  try {
-    const userId = c.get('userId');
-
-    // Check if notification exists and belongs to user
-    const { data: notification, error: checkError } = await supabase
-      .from('notifications')
-      .select('id, user_id')
-      .eq('id', notificationId)
-      .single();
-
-    if (checkError || !notification) {
-      return sendNotFound(c, 'Notification not found');
-    }
-
-    if (notification.user_id !== userId) {
-      return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to update this notification', 403);
-    }
-
-    // Mark as read
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: true, updated_at: new Date().toISOString() })
-      .eq('id', notificationId);
-
-    if (error) {
-      return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to mark notification as read', 500, error.message);
-    }
-
-    return sendSuccess(c, null, 'Notification marked as read');
-
-  } catch (error: any) {
-    console.error('Mark notification as read error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Mark all notifications as read
-export async function markAllNotificationsAsRead(c: Context) {
-  try {
-    const userId = c.get('userId');
-
-    // Mark all notifications as read
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: true, updated_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .eq('read', false);
-
-    if (error) {
-      return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to mark all notifications as read', 500, error.message);
-    }
-
-    return sendSuccess(c, null, 'All notifications marked as read');
-
-  } catch (error: any) {
-    console.error('Mark all notifications as read error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Get unread notification count
-export async function getUnreadNotificationCount(c: Context) {
-  try {
-    const userId = c.get('userId');
-
-    // Get unread notification count
-    const { count, error } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('read', false);
-
-    if (error) {
-      return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get unread notification count', 500, error.message);
-    }
-
-    return sendSuccess(c, { count: count || 0 }, API_MESSAGES.SUCCESS);
-
-  } catch (error: any) {
-    console.error('Get unread notification count error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
   }
 }
 
@@ -459,143 +378,25 @@ export async function getUserDashboard(c: Context) {
 }
 
 // Get dashboard stats (alias for getWorkoutStats)
-export async function getDashboardStats(c: Context, query: any = {}) {
+export async function getDashboardStats(c: Context, query: PeriodQuery = {}) {
   const { period = 'week' } = query;
   return getWorkoutStats(c, period);
 }
 
 // Get recent activity (alias for getActivityFeed)
-export async function getRecentActivity(c: Context, query: any = {}) {
-  const { limit = 20, offset = 0 } = query;
-  return getActivityFeed(c, parseInt(limit), parseInt(offset));
+export async function getRecentActivity(c: Context, query: ActivityFeedQuery = {}) {
+  return getActivityFeed(c, query);
 }
 
 // Get workout progress (alias for getWorkoutStats)
-export async function getWorkoutProgress(c: Context, query: any = {}) {
+export async function getWorkoutProgress(c: Context, query: PeriodQuery = {}) {
   const { period = 'month' } = query;
   return getWorkoutStats(c, period);
 }
 
-// Get user achievements
-export async function getUserAchievements(c: Context, query: any = {}) {
-  try {
-    const userId = c.get('userId');
-    const { page = 1, limit = 20 } = query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
-    const { data: achievements, error, count } = await supabase
-      .from('achievements')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .order('earned_at', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1);
-
-    if (error) {
-      return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to fetch achievements', 500, error.message);
-    }
-
-    return sendSuccess(c, achievements, API_MESSAGES.SUCCESS);
-
-  } catch (error: any) {
-    console.error('Get user achievements error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Get user goals
-export async function getUserGoals(c: Context) {
-  try {
-    const userId = c.get('userId');
-
-    const { data: goals, error } = await supabase
-      .from('user_goals')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to fetch goals', 500, error.message);
-    }
-
-    return sendSuccess(c, goals, API_MESSAGES.SUCCESS);
-
-  } catch (error: any) {
-    console.error('Get user goals error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Create goal
-export async function createGoal(c: Context, body: any) {
-  try {
-    const userId = c.get('userId');
-
-    const { data: goal, error } = await supabase
-      .from('user_goals')
-      .insert({
-        user_id: userId,
-        ...body,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to create goal', 500, error.message);
-    }
-
-    return sendSuccess(c, goal, API_MESSAGES.GOAL_CREATED, 201);
-
-  } catch (error: any) {
-    console.error('Create goal error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Update goal
-export async function updateGoal(c: Context, goalId: string, body: any) {
-  try {
-    const { data: goal, error } = await supabase
-      .from('user_goals')
-      .update(body)
-      .eq('id', goalId)
-      .select()
-      .single();
-
-    if (error) {
-      return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to update goal', 500, error.message);
-    }
-
-    return sendSuccess(c, goal, API_MESSAGES.GOAL_UPDATED);
-
-  } catch (error: any) {
-    console.error('Update goal error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
-
-// Delete goal
-export async function deleteGoal(c: Context, goalId: string) {
-  try {
-    const { error } = await supabase
-      .from('user_goals')
-      .delete()
-      .eq('id', goalId);
-
-    if (error) {
-      return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to delete goal', 500, error.message);
-    }
-
-    return sendSuccess(c, null, API_MESSAGES.GOAL_DELETED);
-
-  } catch (error: any) {
-    console.error('Delete goal error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-  }
-}
 
 // Get analytics (combined stats)
-export async function getAnalytics(c: Context, query: any = {}) {
+export async function getAnalytics(c: Context, query: PeriodQuery = {}) {
   const { period = 'week' } = query;
   
   try {
@@ -608,22 +409,23 @@ export async function getAnalytics(c: Context, query: any = {}) {
       period
     }, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Get analytics error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
   }
 }
 
 // Get leaderboard
-export async function getLeaderboard(c: Context, query: any = {}) {
+export async function getLeaderboard(c: Context, query: LeaderboardQuery = {}) {
   try {
     const { type = 'workouts', limit = 10 } = query;
 
     const { data: leaderboard, error } = await supabase
       .from('profiles')
       .select('id, username, full_name, avatar_url')
-      .order('total_workouts', { ascending: false })
-      .limit(parseInt(limit));
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (error) {
       return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to get leaderboard', 500, error.message);
@@ -631,14 +433,15 @@ export async function getLeaderboard(c: Context, query: any = {}) {
 
     return sendSuccess(c, leaderboard, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Get leaderboard error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
   }
 }
 
 // Get calendar data
-export async function getCalendarData(c: Context, query: any = {}) {
+export async function getCalendarData(c: Context, query: CalendarQuery) {
   try {
     const userId = c.get('userId');
     const { month, year } = query;
@@ -657,8 +460,9 @@ export async function getCalendarData(c: Context, query: any = {}) {
 
     return sendSuccess(c, workouts, API_MESSAGES.SUCCESS);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Get calendar data error:', error);
-    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+    return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
   }
 }

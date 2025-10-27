@@ -1,9 +1,10 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
+import { emailLogger, logEmailSent, logEmailError } from './logger.js';
 // Create email transporter
 const createTransporter = () => {
     if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) {
-        console.warn('⚠️  Email configuration incomplete. Email functionality will be disabled.');
+        emailLogger.warn('Email configuration incomplete. Email functionality will be disabled.');
         return null;
     }
     return nodemailer.createTransport({
@@ -30,11 +31,13 @@ export const sendEmail = async (options) => {
             text: options.text,
             html: options.html,
         });
-        console.log('✅ Email sent successfully:', info.messageId);
+        emailLogger.info({ messageId: info.messageId, to: options.to, subject: options.subject }, 'Email sent successfully');
+        logEmailSent(options.to, options.subject, 'custom');
         return { success: true, messageId: info.messageId };
     }
     catch (error) {
-        console.error('❌ Failed to send email:', error);
+        emailLogger.error({ error: error.message, to: options.to, subject: options.subject }, 'Failed to send email');
+        logEmailError(options.to, options.subject, error);
         throw new Error('Failed to send email');
     }
 };

@@ -1,8 +1,17 @@
-import { Context, Next } from 'hono';
-import { HTTP_STATUS, API_MESSAGES, ERROR_CODES } from '../constants/index.js';
-import { sendError, sendInternalError } from '../utils/response.js';
+/**
+ * Error Middleware
+ * Provides custom error classes and centralized error handling
+ */
 
-// Custom error classes
+import type { HonoContext } from '../types/hono.types.js';
+import { ZodError } from 'zod';
+import { HTTP_STATUS, API_MESSAGES, ERROR_CODES } from '../constants/index.js';
+import { sendInternalError } from '../utils/response.js';
+import { logger, logError } from '../../lib/logger.js';
+
+/**
+ * Custom error classes for typed error handling
+ */
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly code: string;
@@ -74,47 +83,24 @@ export class ExternalServiceError extends AppError {
   }
 }
 
-// Error factory functions
-export const createValidationError = (message: string, details?: any) => {
-  return new ValidationError(message, details);
-};
-
-export const createAuthenticationError = (message?: string) => {
-  return new AuthenticationError(message);
-};
-
-export const createAuthorizationError = (message?: string) => {
-  return new AuthorizationError(message);
-};
-
-export const createNotFoundError = (resource?: string) => {
-  return new NotFoundError(resource);
-};
-
-export const createConflictError = (message?: string) => {
-  return new ConflictError(message);
-};
-
-export const createRateLimitError = (message?: string) => {
-  return new RateLimitError(message);
-};
-
-export const createDatabaseError = (message: string, details?: any) => {
-  return new DatabaseError(message, details);
-};
-
-export const createExternalServiceError = (service: string, message: string, details?: any) => {
-  return new ExternalServiceError(service, message, details);
-};
-
-// Error handler middleware
-export const errorHandler = async (err: Error, c: Context) => {
-  console.error('Error caught by middleware:', {
+/**
+ * Global error handler middleware
+ * Catches and formats all unhandled errors in the application
+ */
+export const errorHandler = async (err: Error, c: HonoContext) => {
+  logger.error({
     message: err.message,
     stack: err.stack,
     url: c.req.url,
     method: c.req.method,
+    requestId: c.get('requestId'),
     timestamp: new Date().toISOString()
+  }, 'Error caught by middleware');
+  
+  logError(err, {
+    url: c.req.url,
+    method: c.req.method,
+    requestId: c.get('requestId')
   });
 
   // Handle known AppError instances
@@ -122,23 +108,23 @@ export const errorHandler = async (err: Error, c: Context) => {
     return c.json({
       success: false,
       error: {
-        code: (err as any).code,
-        message: (err as any).message,
-        details: (err as any).details
+        code: err.code,
+        message: err.message,
+        details: err.details
       }
     }, err.statusCode as any);
   }
 
   // Handle Zod validation errors
-  if (err.name === 'ZodError') {
+  if (err instanceof ZodError) {
     return c.json({
       success: false,
       error: {
         code: ERROR_CODES.VALIDATION_ERROR,
         message: API_MESSAGES.VALIDATION_ERROR,
-        details: (err as any).message
+        details: err.errors
       }
-    }, HTTP_STATUS.BAD_REQUEST as any);
+    }, HTTP_STATUS.BAD_REQUEST);
   }
 
   // Handle JWT errors
@@ -204,7 +190,7 @@ export const errorHandler = async (err: Error, c: Context) => {
         code: ERROR_CODES.VALIDATION_ERROR,
         message: 'File too large'
       }
-    }, HTTP_STATUS.BAD_REQUEST as any);
+    }, HTTP_STATUS.BAD_REQUEST);
   }
 
   // Handle CORS errors
@@ -222,140 +208,3 @@ export const errorHandler = async (err: Error, c: Context) => {
   return sendInternalError(c, 'An unexpected error occurred');
 };
 
-// 404 handler
-export const notFoundHandler = (c: Context) => {
-  return c.json({
-    success: false,
-    error: {
-      code: ERROR_CODES.NOT_FOUND,
-      message: 'Endpoint not found',
-      details: {
-        method: c.req.method,
-        url: c.req.url,
-        availableEndpoints: [
-          'GET /health',
-          'GET /reference',
-          'GET /openapi.json',
-          'POST /api/v1/auth/register',
-          'POST /api/v1/auth/login',
-          'POST /api/v1/auth/logout',
-          'GET /api/v1/users/profile',
-          'PUT /api/v1/users/profile',
-          'GET /api/v1/workouts',
-          'POST /api/v1/workouts',
-          'GET /api/v1/workouts/:id',
-          'PUT /api/v1/workouts/:id',
-          'DELETE /api/v1/workouts/:id'
-        ]
-      }
-    }
-  }, HTTP_STATUS.NOT_FOUND);
-};
-
-// Async error wrapper
-export const asyncHandler = (fn: Function) => {
-  return (c: Context, next: Next) => {
-    return Promise.resolve(fn(c, next)).catch((err) => {
-      return errorHandler(err, c);
-    });
-  };
-};
-
-// Error logging utility
-export const logError = (error: Error, context?: any) => {
-  const errorLog = {
-    timestamp: new Date().toISOString(),
-    message: error.message,
-    stack: error.stack,
-    context: context || {},
-    level: 'error'
-  };
-
-  // In production, you might want to send this to a logging service
-  console.error('Error logged:', errorLog);
-  
-  // You could also send to external logging service here
-  // await sendToLoggingService(errorLog);
-};
-
-// Error monitoring utility
-export const monitorError = (error: Error, context?: any) => {
-  logError(error, context);
-  
-  // In production, you might want to send this to an error monitoring service
-  // await sendToErrorMonitoring(error, context);
-};
-
-// Error recovery utilities
-export const isOperationalError = (error: Error): boolean => {
-  if (error instanceof AppError) {
-    return error.isOperational;
-  }
-  return false;
-};
-
-export const shouldRestart = (error: Error): boolean => {
-  return !isOperationalError(error);
-};
-
-// Error context builder
-export const buildErrorContext = (c: Context) => {
-  return {
-    url: c.req.url,
-    method: c.req.method,
-    headers: Object.fromEntries(c.req.raw.headers as any),
-    userAgent: c.req.header('user-agent'),
-    ip: c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown',
-    timestamp: new Date().toISOString()
-  };
-};
-
-// Error response formatter
-export const formatErrorResponse = (error: Error, includeStack: boolean = false) => {
-  const baseResponse = {
-    success: false,
-    error: {
-      code: error instanceof AppError ? error.code : ERROR_CODES.INTERNAL_ERROR,
-      message: error.message,
-      ...(error instanceof AppError && error.details && { details: error.details })
-    }
-  };
-
-  if (includeStack && process.env.NODE_ENV === 'development') {
-    return {
-      ...baseResponse,
-      stack: error.stack
-    };
-  }
-
-  return baseResponse;
-};
-
-export default {
-  AppError,
-  ValidationError,
-  AuthenticationError,
-  AuthorizationError,
-  NotFoundError,
-  ConflictError,
-  RateLimitError,
-  DatabaseError,
-  ExternalServiceError,
-  createValidationError,
-  createAuthenticationError,
-  createAuthorizationError,
-  createNotFoundError,
-  createConflictError,
-  createRateLimitError,
-  createDatabaseError,
-  createExternalServiceError,
-  errorHandler,
-  notFoundHandler,
-  asyncHandler,
-  logError,
-  monitorError,
-  isOperationalError,
-  shouldRestart,
-  buildErrorContext,
-  formatErrorResponse
-};

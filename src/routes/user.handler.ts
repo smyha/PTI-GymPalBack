@@ -1,9 +1,17 @@
 import { Hono } from 'hono';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
-import * as UserService from '../services/user.service.js';
+import {
+  getUserProfile,
+  updateProfile,
+  getUserById,
+  searchUsers,
+  getUserStats,
+  getUserAchievements,
+  deleteAccount
+} from '../services/user.service.js';
 import { UserSchemas } from '../doc/schemas.js';
-import { sendSuccess, sendError, sendNotFound, sendUnauthorized } from '../shared/utils/response.js';
+import { sendError } from '../shared/utils/response.js';
 import '../shared/types/hono.types.js';
 
 const userHandler = new Hono();
@@ -28,17 +36,15 @@ const userHandler = new Hono();
  */
 // GET /api/v1/users/profile
 userHandler.get(
-  '/profile',
-  authMiddleware,
+  '/profile', 
+  authMiddleware, 
   async (c) => {
-    try {
-      const result = await UserService.getUserProfile(c);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get user profile', 500, error.message);
-    }
+  try {
+    return await getUserProfile(c);
+  } catch (error: any) {
+    return sendError(c, 'INTERNAL_ERROR', error.message || 'Failed to get user profile', 500);
   }
-);
+});
 
 /**
  * @openapi
@@ -74,45 +80,9 @@ userHandler.put(
   async (c) => {
     try {
       const body = c.get('validatedBody');
-      const result = await UserService.updateProfile(c, body);
-      return result;
+      return await updateProfile(c, body);
     } catch (error: any) {
       return sendError(c, 'INTERNAL_ERROR', 'Failed to update profile', 500, error.message);
-    }
-  }
-);
-
-/**
- * @openapi
- * /api/v1/users/{id}:
- *   get:
- *     summary: Get user by ID
- *     description: Get public user information by user ID
- *     tags: [Users]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User information retrieved successfully
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
-// GET /api/v1/users/:id
-userHandler.get(
-  '/:id',
-  validationMiddleware({ params: UserSchemas.getUserParams }),
-  async (c) => {
-    try {
-      const params = c.get('validatedParams');
-      const result = await UserService.getUserById(c, params.id);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get user', 500, error.message);
     }
   }
 );
@@ -151,11 +121,49 @@ userHandler.get(
   validationMiddleware({ query: UserSchemas.searchUsersQuery }),
   async (c) => {
     try {
-      const query = c.get('validatedQuery');
-      const result = await UserService.searchUsers(c, query);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'User search failed', 500, error.message);
+      const query = c.get('validatedQuery') as { page?: string; limit?: string; q: string };
+      const page = parseInt(query.page || '1');
+      const limit = parseInt(query.limit || '10');
+      const offset = (page - 1) * limit;
+      return await searchUsers(c, query.q, limit, offset);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'User search failed';
+      return sendError(c, 'INTERNAL_ERROR', 'User search failed', 500, errorMessage);
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /api/v1/users/{id}:
+ *   get:
+ *     summary: Get user by ID
+ *     description: Get public user information by user ID
+ *     tags: [Users]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User information retrieved successfully
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ */
+// GET /api/v1/users/:id
+userHandler.get(
+  '/:id',
+  validationMiddleware({ params: UserSchemas.getUserParams }),
+  async (c) => {
+    try {
+      const params = c.get('validatedParams') as { id: string };
+      return await getUserById(c, params.id);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get user';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get user', 500, errorMessage);
     }
   }
 );
@@ -186,11 +194,11 @@ userHandler.get(
   validationMiddleware({ params: UserSchemas.getUserParams }),
   async (c) => {
     try {
-      const params = c.get('validatedParams');
-      const result = await UserService.getUserStats(c, params.id);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get user stats', 500, error.message);
+      const params = c.get('validatedParams') as { id: string };
+      return await getUserStats(c, params.id);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get user stats';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get user stats', 500, errorMessage);
     }
   }
 );
@@ -224,12 +232,12 @@ userHandler.get(
   validationMiddleware({ query: UserSchemas.paginationQuery }),
   async (c) => {
     try {
-      const params = c.get('validatedParams');
-      const query = c.get('validatedQuery');
-      const result = await UserService.getUserAchievements(c, params.id, query);
-      return result;
-    } catch (error: any) {
-      return sendError(c, 'INTERNAL_ERROR', 'Failed to get achievements', 500, error.message);
+      const params = c.get('validatedParams') as { id: string };
+      const query = c.get('validatedQuery') as Record<string, unknown>;
+      return await getUserAchievements(c, params.id, query);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get achievements';
+      return sendError(c, 'INTERNAL_ERROR', 'Failed to get achievements', 500, errorMessage);
     }
   }
 );
@@ -268,8 +276,7 @@ userHandler.delete(
   async (c) => {
     try {
       const body = c.get('validatedBody');
-      const result = await UserService.deleteAccount(c, body);
-      return result;
+      return await deleteAccount(c, body);
     } catch (error: any) {
       return sendError(c, 'INTERNAL_ERROR', 'Failed to delete account', 500, error.message);
     }

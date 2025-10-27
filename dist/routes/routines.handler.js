@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
-import * as RoutinesService from '../services/routines.service.js';
+import { listRoutines, createRoutine, getRoutine, updateRoutine, deleteRoutine, searchRoutines, shareRoutine, likeRoutine, unlikeRoutine, useRoutine, duplicateRoutine, getRoutineExercises, addExerciseToRoutine, updateRoutineExercise, removeExerciseFromRoutine, getRoutineCategories, getTrendingRoutines } from '../services/routines.service.js';
 import { RoutineSchemas } from '../doc/schemas.js';
 import { sendError } from '../shared/utils/response.js';
 import '../shared/types/hono.types.js';
@@ -29,8 +29,7 @@ const routinesHandler = new Hono();
 routinesHandler.get('/', authMiddleware, validationMiddleware({ query: RoutineSchemas.listRoutinesQuery }), async (c) => {
     try {
         const query = c.get('validatedQuery');
-        const result = await RoutinesService.listRoutines(c, query);
-        return result;
+        return await listRoutines(c, query);
     }
     catch (error) {
         return sendError(c, 'INTERNAL_ERROR', 'Failed to list routines', 500, error.message);
@@ -59,7 +58,7 @@ routinesHandler.get('/', authMiddleware, validationMiddleware({ query: RoutineSc
 routinesHandler.post('/', authMiddleware, validationMiddleware({ body: RoutineSchemas.createRoutineBody }), async (c) => {
     try {
         const body = c.get('validatedBody');
-        const result = await RoutinesService.createRoutine(c, body);
+        const result = await createRoutine(c, body);
         return result;
     }
     catch (error) {
@@ -89,7 +88,7 @@ routinesHandler.post('/', authMiddleware, validationMiddleware({ body: RoutineSc
 routinesHandler.get('/:id', authMiddleware, validationMiddleware({ params: RoutineSchemas.getRoutineParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
-        const result = await RoutinesService.getRoutine(c, params.id);
+        const result = await getRoutine(c, params.id);
         return result;
     }
     catch (error) {
@@ -123,7 +122,7 @@ routinesHandler.put('/:id', authMiddleware, validationMiddleware({
     try {
         const params = c.get('validatedParams');
         const body = c.get('validatedBody');
-        const result = await RoutinesService.updateRoutine(c, params.id, body);
+        const result = await updateRoutine(c, params.id, body);
         return result;
     }
     catch (error) {
@@ -153,7 +152,7 @@ routinesHandler.put('/:id', authMiddleware, validationMiddleware({
 routinesHandler.delete('/:id', authMiddleware, validationMiddleware({ params: RoutineSchemas.getRoutineParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
-        const result = await RoutinesService.deleteRoutine(c, params.id);
+        const result = await deleteRoutine(c, params.id);
         return result;
     }
     catch (error) {
@@ -183,11 +182,12 @@ routinesHandler.delete('/:id', authMiddleware, validationMiddleware({ params: Ro
 routinesHandler.get('/search', authMiddleware, validationMiddleware({ query: RoutineSchemas.searchRoutinesQuery }), async (c) => {
     try {
         const query = c.get('validatedQuery');
-        const result = await RoutinesService.searchRoutines(c, query);
+        const result = await searchRoutines(c, query.q);
         return result;
     }
     catch (error) {
-        return sendError(c, 'INTERNAL_ERROR', 'Failed to search routines', 500, error.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return sendError(c, 'INTERNAL_ERROR', 'Failed to search routines', 500, message);
     }
 });
 /**
@@ -217,7 +217,7 @@ routinesHandler.post('/:id/share', authMiddleware, validationMiddleware({
     try {
         const params = c.get('validatedParams');
         const body = c.get('validatedBody');
-        const result = await RoutinesService.shareRoutine(c, params.id, body);
+        const result = await shareRoutine(c, params.id, body);
         return result;
     }
     catch (error) {
@@ -247,7 +247,7 @@ routinesHandler.post('/:id/share', authMiddleware, validationMiddleware({
 routinesHandler.post('/:id/like', authMiddleware, validationMiddleware({ params: RoutineSchemas.getRoutineParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
-        const result = await RoutinesService.likeRoutine(c, params.id);
+        const result = await likeRoutine(c, params.id);
         return result;
     }
     catch (error) {
@@ -277,7 +277,7 @@ routinesHandler.post('/:id/like', authMiddleware, validationMiddleware({ params:
 routinesHandler.delete('/:id/like', authMiddleware, validationMiddleware({ params: RoutineSchemas.getRoutineParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
-        const result = await RoutinesService.unlikeRoutine(c, params.id);
+        const result = await unlikeRoutine(c, params.id);
         return result;
     }
     catch (error) {
@@ -307,7 +307,7 @@ routinesHandler.delete('/:id/like', authMiddleware, validationMiddleware({ param
 routinesHandler.post('/:id/use', authMiddleware, validationMiddleware({ params: RoutineSchemas.getRoutineParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
-        const result = await RoutinesService.useRoutine(c, params.id);
+        const result = await useRoutine(c, params.id);
         return result;
     }
     catch (error) {
@@ -341,7 +341,7 @@ routinesHandler.post('/:id/duplicate', authMiddleware, validationMiddleware({
     try {
         const params = c.get('validatedParams');
         const body = c.get('validatedBody');
-        const result = await RoutinesService.duplicateRoutine(c, params.id, body);
+        const result = await duplicateRoutine(c, params.id, body);
         return result;
     }
     catch (error) {
@@ -371,7 +371,7 @@ routinesHandler.post('/:id/duplicate', authMiddleware, validationMiddleware({
 routinesHandler.get('/:id/exercises', authMiddleware, validationMiddleware({ params: RoutineSchemas.getRoutineParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
-        const result = await RoutinesService.getRoutineExercises(c, params.id);
+        const result = await getRoutineExercises(c, params.id);
         return result;
     }
     catch (error) {
@@ -405,7 +405,7 @@ routinesHandler.post('/:id/exercises', authMiddleware, validationMiddleware({
     try {
         const params = c.get('validatedParams');
         const body = c.get('validatedBody');
-        const result = await RoutinesService.addExerciseToRoutine(c, params.id, body);
+        const result = await addExerciseToRoutine(c, params.id, body);
         return result;
     }
     catch (error) {
@@ -439,7 +439,7 @@ routinesHandler.put('/:id/exercises/:exerciseId', authMiddleware, validationMidd
     try {
         const params = c.get('validatedParams');
         const body = c.get('validatedBody');
-        const result = await RoutinesService.updateRoutineExercise(c, params.id, params.exerciseId, body);
+        const result = await updateRoutineExercise(c, params.id, params.exerciseId, body);
         return result;
     }
     catch (error) {
@@ -469,7 +469,7 @@ routinesHandler.put('/:id/exercises/:exerciseId', authMiddleware, validationMidd
 routinesHandler.delete('/:id/exercises/:exerciseId', authMiddleware, validationMiddleware({ params: RoutineSchemas.updateRoutineExerciseParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
-        const result = await RoutinesService.removeExerciseFromRoutine(c, params.id, params.exerciseId);
+        const result = await removeExerciseFromRoutine(c, params.id, params.exerciseId);
         return result;
     }
     catch (error) {
@@ -498,7 +498,7 @@ routinesHandler.delete('/:id/exercises/:exerciseId', authMiddleware, validationM
  */
 routinesHandler.get('/categories', async (c) => {
     try {
-        const result = await RoutinesService.getRoutineCategories(c);
+        const result = await getRoutineCategories(c);
         return result;
     }
     catch (error) {
@@ -528,7 +528,7 @@ routinesHandler.get('/categories', async (c) => {
 routinesHandler.get('/trending', authMiddleware, validationMiddleware({ query: RoutineSchemas.trendingRoutinesQuery }), async (c) => {
     try {
         const query = c.get('validatedQuery');
-        const result = await RoutinesService.getTrendingRoutines(c, query);
+        const result = await getTrendingRoutines(c, query);
         return result;
     }
     catch (error) {

@@ -35,7 +35,7 @@ export function isValidAvatarUrl(url: string | null | undefined): boolean {
 /**
  * Generates a personalized avatar URL based on user's name and gender
  */
-export function generatePersonalizedAvatar(name: string, gender?: string): string {
+export function generatePersonalizedAvatar(name: string, gender?: string | null): string {
   const initials = name
     .split(' ')
     .map(word => word.charAt(0).toUpperCase())
@@ -53,7 +53,7 @@ export function generatePersonalizedAvatar(name: string, gender?: string): strin
 /**
  * Gets a default avatar URL based on gender
  */
-export function getDefaultAvatarByGender(gender?: string): string {
+export function getDefaultAvatarByGender(gender?: string | null): string {
   switch (gender) {
     case 'male':
       return 'https://ui-avatars.com/api/?name=User&background=2196f3&color=fff&size=200&bold=true';

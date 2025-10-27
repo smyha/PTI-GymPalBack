@@ -136,21 +136,22 @@ export async function getWorkoutStats(c, period = 'week') {
             return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get workout stats', 500, workoutsError.message);
         }
         // Calculate statistics
-        const totalWorkouts = workouts?.length || 0;
-        const totalDuration = workouts?.reduce((sum, workout) => sum + (workout.duration || 0), 0) || 0;
+        const workoutsData = (workouts || []);
+        const totalWorkouts = workoutsData.length;
+        const totalDuration = workoutsData.reduce((sum, workout) => sum + (workout.duration || 0), 0);
         const avgDuration = totalWorkouts > 0 ? totalDuration / totalWorkouts : 0;
         // Group by difficulty
-        const difficultyStats = workouts?.reduce((acc, workout) => {
+        const difficultyStats = workoutsData.reduce((acc, workout) => {
             const difficulty = workout.difficulty || 'unknown';
             acc[difficulty] = (acc[difficulty] || 0) + 1;
             return acc;
-        }, {}) || {};
+        }, {});
         // Group by day
-        const dailyStats = workouts?.reduce((acc, workout) => {
+        const dailyStats = workoutsData.reduce((acc, workout) => {
             const date = new Date(workout.created_at).toISOString().split('T')[0];
             acc[date] = (acc[date] || 0) + 1;
             return acc;
-        }, {}) || {};
+        }, {});
         const stats = {
             period,
             totalWorkouts,
@@ -162,8 +163,9 @@ export async function getWorkoutStats(c, period = 'week') {
         return sendSuccess(c, stats, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get workout stats error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get social statistics
@@ -190,7 +192,8 @@ export async function getSocialStats(c) {
             .from('posts')
             .select('id')
             .eq('user_id', userId);
-        const postIds = posts?.map(p => p.id) || [];
+        const postsData = (posts || []);
+        const postIds = postsData.map(p => p.id);
         let totalLikes = 0;
         if (postIds.length > 0) {
             const { count: likesCount } = await supabase
@@ -231,14 +234,16 @@ export async function getSocialStats(c) {
         return sendSuccess(c, stats, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get social stats error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get activity feed
-export async function getActivityFeed(c, limit = 20, offset = 0) {
+export async function getActivityFeed(c, query = {}) {
     try {
         const userId = c.get('userId');
+        const { limit = 20, offset = 0 } = query;
         // Get posts from users that the current user follows
         const { data: posts, error: postsError } = await supabase
             .from('posts')
@@ -255,7 +260,8 @@ export async function getActivityFeed(c, limit = 20, offset = 0) {
             return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get activity feed', 500, postsError.message);
         }
         // Get likes and comments for each post
-        const postsWithStats = await Promise.all((posts || []).map(async (post) => {
+        const postsData = (posts || []);
+        const postsWithStats = await Promise.all(postsData.map(async (post) => {
             // Get like count
             const { count: likeCount } = await supabase
                 .from('post_likes')
@@ -285,105 +291,9 @@ export async function getActivityFeed(c, limit = 20, offset = 0) {
         return sendSuccess(c, postsWithStats, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get activity feed error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Get notifications
-export async function getNotifications(c, limit = 20, offset = 0) {
-    try {
-        const userId = c.get('userId');
-        // Get notifications
-        const { data: notifications, error } = await supabase
-            .from('notifications')
-            .select(`
-        id, type, title, message, data, read, created_at,
-        profiles!notifications_from_user_id_fkey (
-          id, username, full_name, avatar_url
-        )
-      `)
-            .eq('user_id', userId)
-            .range(offset, offset + limit - 1)
-            .order('created_at', { ascending: false });
-        if (error) {
-            return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get notifications', 500, error.message);
-        }
-        return sendSuccess(c, notifications, API_MESSAGES.SUCCESS);
-    }
-    catch (error) {
-        console.error('Get notifications error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Mark notification as read
-export async function markNotificationAsRead(c, notificationId) {
-    try {
-        const userId = c.get('userId');
-        // Check if notification exists and belongs to user
-        const { data: notification, error: checkError } = await supabase
-            .from('notifications')
-            .select('id, user_id')
-            .eq('id', notificationId)
-            .single();
-        if (checkError || !notification) {
-            return sendNotFound(c, 'Notification not found');
-        }
-        if (notification.user_id !== userId) {
-            return sendError(c, ERROR_CODES.FORBIDDEN, 'Not authorized to update this notification', 403);
-        }
-        // Mark as read
-        const { error } = await supabase
-            .from('notifications')
-            .update({ read: true, updated_at: new Date().toISOString() })
-            .eq('id', notificationId);
-        if (error) {
-            return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to mark notification as read', 500, error.message);
-        }
-        return sendSuccess(c, null, 'Notification marked as read');
-    }
-    catch (error) {
-        console.error('Mark notification as read error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Mark all notifications as read
-export async function markAllNotificationsAsRead(c) {
-    try {
-        const userId = c.get('userId');
-        // Mark all notifications as read
-        const { error } = await supabase
-            .from('notifications')
-            .update({ read: true, updated_at: new Date().toISOString() })
-            .eq('user_id', userId)
-            .eq('read', false);
-        if (error) {
-            return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to mark all notifications as read', 500, error.message);
-        }
-        return sendSuccess(c, null, 'All notifications marked as read');
-    }
-    catch (error) {
-        console.error('Mark all notifications as read error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Get unread notification count
-export async function getUnreadNotificationCount(c) {
-    try {
-        const userId = c.get('userId');
-        // Get unread notification count
-        const { count, error } = await supabase
-            .from('notifications')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('read', false);
-        if (error) {
-            return sendError(c, ERROR_CODES.INTERNAL_ERROR, 'Failed to get unread notification count', 500, error.message);
-        }
-        return sendSuccess(c, { count: count || 0 }, API_MESSAGES.SUCCESS);
-    }
-    catch (error) {
-        console.error('Get unread notification count error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get user dashboard (alias for getDashboardOverview)
@@ -397,113 +307,12 @@ export async function getDashboardStats(c, query = {}) {
 }
 // Get recent activity (alias for getActivityFeed)
 export async function getRecentActivity(c, query = {}) {
-    const { limit = 20, offset = 0 } = query;
-    return getActivityFeed(c, parseInt(limit), parseInt(offset));
+    return getActivityFeed(c, query);
 }
 // Get workout progress (alias for getWorkoutStats)
 export async function getWorkoutProgress(c, query = {}) {
     const { period = 'month' } = query;
     return getWorkoutStats(c, period);
-}
-// Get user achievements
-export async function getUserAchievements(c, query = {}) {
-    try {
-        const userId = c.get('userId');
-        const { page = 1, limit = 20 } = query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
-        const { data: achievements, error, count } = await supabase
-            .from('achievements')
-            .select('*', { count: 'exact' })
-            .eq('user_id', userId)
-            .order('earned_at', { ascending: false })
-            .range(offset, offset + parseInt(limit) - 1);
-        if (error) {
-            return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to fetch achievements', 500, error.message);
-        }
-        return sendSuccess(c, achievements, API_MESSAGES.SUCCESS);
-    }
-    catch (error) {
-        console.error('Get user achievements error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Get user goals
-export async function getUserGoals(c) {
-    try {
-        const userId = c.get('userId');
-        const { data: goals, error } = await supabase
-            .from('user_goals')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-        if (error) {
-            return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to fetch goals', 500, error.message);
-        }
-        return sendSuccess(c, goals, API_MESSAGES.SUCCESS);
-    }
-    catch (error) {
-        console.error('Get user goals error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Create goal
-export async function createGoal(c, body) {
-    try {
-        const userId = c.get('userId');
-        const { data: goal, error } = await supabase
-            .from('user_goals')
-            .insert({
-            user_id: userId,
-            ...body,
-            created_at: new Date().toISOString()
-        })
-            .select()
-            .single();
-        if (error) {
-            return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to create goal', 500, error.message);
-        }
-        return sendSuccess(c, goal, API_MESSAGES.GOAL_CREATED, 201);
-    }
-    catch (error) {
-        console.error('Create goal error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Update goal
-export async function updateGoal(c, goalId, body) {
-    try {
-        const { data: goal, error } = await supabase
-            .from('user_goals')
-            .update(body)
-            .eq('id', goalId)
-            .select()
-            .single();
-        if (error) {
-            return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to update goal', 500, error.message);
-        }
-        return sendSuccess(c, goal, API_MESSAGES.GOAL_UPDATED);
-    }
-    catch (error) {
-        console.error('Update goal error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
-}
-// Delete goal
-export async function deleteGoal(c, goalId) {
-    try {
-        const { error } = await supabase
-            .from('user_goals')
-            .delete()
-            .eq('id', goalId);
-        if (error) {
-            return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to delete goal', 500, error.message);
-        }
-        return sendSuccess(c, null, API_MESSAGES.GOAL_DELETED);
-    }
-    catch (error) {
-        console.error('Delete goal error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
-    }
 }
 // Get analytics (combined stats)
 export async function getAnalytics(c, query = {}) {
@@ -518,8 +327,9 @@ export async function getAnalytics(c, query = {}) {
         }, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get analytics error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get leaderboard
@@ -529,20 +339,21 @@ export async function getLeaderboard(c, query = {}) {
         const { data: leaderboard, error } = await supabase
             .from('profiles')
             .select('id, username, full_name, avatar_url')
-            .order('total_workouts', { ascending: false })
-            .limit(parseInt(limit));
+            .order('created_at', { ascending: false })
+            .limit(limit);
         if (error) {
             return sendError(c, ERROR_CODES.DATABASE_ERROR, 'Failed to get leaderboard', 500, error.message);
         }
         return sendSuccess(c, leaderboard, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get leaderboard error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }
 // Get calendar data
-export async function getCalendarData(c, query = {}) {
+export async function getCalendarData(c, query) {
     try {
         const userId = c.get('userId');
         const { month, year } = query;
@@ -559,7 +370,8 @@ export async function getCalendarData(c, query = {}) {
         return sendSuccess(c, workouts, API_MESSAGES.SUCCESS);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         console.error('Get calendar data error:', error);
-        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, error.message);
+        return sendError(c, ERROR_CODES.INTERNAL_ERROR, API_MESSAGES.INTERNAL_ERROR, 500, message);
     }
 }

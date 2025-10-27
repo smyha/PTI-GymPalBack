@@ -1,6 +1,5 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
 import { prettyJSON } from 'hono/pretty-json';
 import { apiReference } from '@scalar/hono-api-reference';
@@ -9,6 +8,9 @@ import dotenv from 'dotenv';
 import { env, corsOrigins, corsCredentials } from './config/env.js';
 import { rateLimitMiddleware } from './shared/middleware/rate-limit.middleware.js';
 import { errorHandler } from './shared/middleware/error.middleware.js';
+import { loggingMiddleware } from './shared/middleware/logging.middleware.js';
+import { logger } from './lib/logger.js';
+import { ROUTES } from './shared/constants/routes.js';
 // Import route handlers
 import authHandler from './routes/auth.handler.js';
 import userHandler from './routes/user.handler.js';
@@ -16,7 +18,6 @@ import exercisesHandler from './routes/exercises.handler.js';
 import workoutHandler from './routes/workout.handler.js';
 import socialHandler from './routes/social.handler.js';
 import personalHandler from './routes/personal.handler.js';
-import routinesHandler from './routes/routines.handler.js';
 import dashboardHandler from './routes/dashboard.handler.js';
 import settingsHandler from './routes/settings.handler.js';
 // ============================================================================
@@ -39,9 +40,10 @@ async function createApp() {
     const openapi = JSON.parse(await readFile(new URL('../openapi.json', import.meta.url), 'utf-8'));
     // ============================================================================
     // GLOBAL MIDDLEWARE
+    // Applied in order: Pretty JSON → Logging → CORS → Rate Limiting
     // ============================================================================
-    app.use('*', logger());
     app.use('*', prettyJSON());
+    app.use('*', loggingMiddleware);
     app.use('*', cors({
         origin: corsOrigins,
         credentials: corsCredentials,
@@ -82,7 +84,7 @@ async function createApp() {
      *                   type: string
      *                   example: 1.0.0
      */
-    app.get('/health', (c) => {
+    app.get(ROUTES.HEALTH, (c) => {
         return c.json({
             status: 'ok',
             environment: env.NODE_ENV,
@@ -133,26 +135,26 @@ async function createApp() {
      *                   type: string
      *                   format: date-time
      */
-    app.get('/', (c) => {
+    app.get(ROUTES.ROOT, (c) => {
         return c.json({
             message: 'GymPal Backend API',
             version: '1.0.0',
             description: 'Complete API for the GymPal fitness application with social features, AI, and analytics',
             documentation: {
-                reference: '/reference',
-                openapi: '/openapi.json',
-                health: '/health'
+                reference: ROUTES.REFERENCE,
+                openapi: ROUTES.OPENAPI,
+                health: ROUTES.HEALTH
             },
             endpoints: {
-                auth: '/api/v1/auth',
-                users: '/api/v1/users',
-                exercises: '/api/v1/exercises',
-                workouts: '/api/v1/workouts',
-                social: '/api/v1/social',
-                personal: '/api/v1/personal',
-                routines: '/api/v1/routines',
-                dashboard: '/api/v1/dashboard',
-                settings: '/api/v1/settings'
+                auth: ROUTES.AUTH,
+                users: ROUTES.USERS,
+                exercises: ROUTES.EXERCISES,
+                workouts: ROUTES.WORKOUTS,
+                social: ROUTES.SOCIAL,
+                personal: ROUTES.PERSONAL,
+                routines: ROUTES.ROUTINES,
+                dashboard: ROUTES.DASHBOARD,
+                settings: ROUTES.SETTINGS
             },
             timestamp: new Date().toISOString()
         });
@@ -177,7 +179,7 @@ async function createApp() {
        *             schema:
        *               type: object
        */
-    app.get('/openapi.json', (c) => {
+    app.get(ROUTES.OPENAPI, (c) => {
         return c.json(openapi);
     });
     /**
@@ -197,23 +199,23 @@ async function createApp() {
      *             schema:
      *               type: string
      */
-    app.get('/reference', apiReference({
+    app.get(ROUTES.REFERENCE, apiReference({
         spec: {
-            url: '/openapi.json',
+            url: ROUTES.OPENAPI,
         },
     }));
     // ============================================================================
     // API ROUTES
     // ============================================================================
-    app.route('/api/v1/auth', authHandler);
-    app.route('/api/v1/users', userHandler);
-    app.route('/api/v1/exercises', exercisesHandler);
-    app.route('/api/v1/workouts', workoutHandler);
-    app.route('/api/v1/social', socialHandler);
-    app.route('/api/v1/personal', personalHandler);
-    app.route('/api/v1/routines', routinesHandler);
-    app.route('/api/v1/dashboard', dashboardHandler);
-    app.route('/api/v1/settings', settingsHandler);
+    app.route(ROUTES.AUTH, authHandler);
+    app.route(ROUTES.USERS, userHandler);
+    app.route(ROUTES.EXERCISES, exercisesHandler);
+    app.route(ROUTES.WORKOUTS, workoutHandler);
+    app.route(ROUTES.SOCIAL, socialHandler);
+    app.route(ROUTES.PERSONAL, personalHandler);
+    // app.route(ROUTES.ROUTINES, routinesHandler); // Disabled - routines table doesn't exist in SQL
+    app.route(ROUTES.DASHBOARD, dashboardHandler);
+    app.route(ROUTES.SETTINGS, settingsHandler);
     // ============================================================================
     // ERROR HANDLING
     // ============================================================================
@@ -273,21 +275,22 @@ async function main() {
             throw new Error(`Invalid port number: ${env.PORT}`);
         }
         // Start the server
-        console.log('🚀 Starting GymPal Backend API...');
-        console.log(`📦 Environment: ${env.NODE_ENV}`);
-        console.log(`🔧 Port: ${port}`);
+        logger.info('🚀 Starting GymPal Backend API...');
+        logger.info(`📦 Environment: ${env.NODE_ENV}`);
+        logger.info(`🔧 Port: ${port}`);
+        logger.info(`📊 Log Level: ${env.LOG_LEVEL}`);
         serve({
             fetch: app.fetch,
             port,
         });
-        console.log(`\n✅ Server running on http://localhost:${port}`);
-        console.log(`📚 API Documentation: http://localhost:${port}/reference`);
-        console.log(`📋 OpenAPI Spec: http://localhost:${port}/openapi.json`);
-        console.log(`🏥 Health Check: http://localhost:${port}/health`);
-        console.log(`\n💡 Press Ctrl+C to stop the server\n`);
+        logger.info(`\n✅ Server running on http://localhost:${port}`);
+        logger.info(`📚 API Documentation: http://localhost:${port}/reference`);
+        logger.info(`📋 OpenAPI Spec: http://localhost:${port}/openapi.json`);
+        logger.info(`🏥 Health Check: http://localhost:${port}/health`);
+        logger.info(`\n💡 Press Ctrl+C to stop the server\n`);
     }
     catch (error) {
-        console.error('❌ Failed to start server:', error);
+        logger.fatal({ error }, '❌ Failed to start server');
         process.exit(1);
     }
 }
