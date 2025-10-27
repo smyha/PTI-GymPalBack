@@ -21,29 +21,36 @@ RUN \
 # Includes development dependencies (TypeScript, build tools, etc.)
 FROM base AS builder
 WORKDIR /app
+RUN corepack enable pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN pnpm install
+RUN pnpm build
 
 # ! DEVELOPMENT STEP
 # Development image with hot reload and all dependencies
 FROM base AS development
 WORKDIR /app
+RUN apk add --no-cache libc6-compat
+RUN corepack enable pnpm
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+
+# Copy source files 
+COPY package.json pnpm-lock.yaml* ./
+COPY src ./src
+COPY tsconfig.json ./
+COPY openapi.json ./
+
 EXPOSE 3000
-ENV NODE_ENV=development
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev"]
 
 # ! RUNNER STEP
 # Production image, copy all the files and run the app
 # Only production dependencies + compiled code
 FROM base AS runner
 WORKDIR /app
-
-ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 gympal
