@@ -28,7 +28,7 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
  */
 export const supabaseAdmin: SupabaseClient<Database> = createClient<Database>(
   env.SUPABASE_URL,
-  env.SUPABASE_SERVICE_KEY,
+  env.SUPABASE_SERVICE_ROLE_KEY,
   {
     auth: {
       autoRefreshToken: false,

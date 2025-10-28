@@ -2,8 +2,8 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 
 // Load environment variables
-dotenv.config({ path: '.env.development' });
 dotenv.config({ path: '.env' });
+// dotenv.config({ path: '.env.dev' });
 dotenv.config();
 
 const envSchema = z.object({
@@ -48,11 +48,7 @@ const envSchema = z.object({
   
   // Additional Configuration
   LOG_LEVEL: z.string().default('info'),
-  FRONTEND_URL: z.string().optional(),
-  AI_FEATURES_ENABLED: z.coerce.boolean().default(false),
-  SOCIAL_FEATURES_ENABLED: z.coerce.boolean().default(true),
-  ANALYTICS_ENABLED: z.coerce.boolean().default(false),
-  NOTIFICATIONS_ENABLED: z.coerce.boolean().default(false),
+  FRONTEND_URL: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
@@ -63,5 +59,5 @@ export const isDevelopment = env.NODE_ENV === 'development';
 export const isProduction = env.NODE_ENV === 'production';
 export const isTest = env.NODE_ENV === 'test';
 
-export const corsOrigins = env.CORS_ORIGIN.split(',').map(origin => origin.trim());
+export const corsOrigins = env.CORS_ORIGIN.split(',').map((origin: string) => origin.trim());
 export const corsCredentials = env.CORS_CREDENTIALS;
