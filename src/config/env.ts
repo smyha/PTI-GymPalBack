@@ -2,15 +2,16 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 
 // Load environment variables
-// Priority: .env.local > .env
-dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env.dev' });
+dotenv.config({ path: '.env' });
 dotenv.config();
 
 const envSchema = z.object({
   // Supabase Configuration
   SUPABASE_URL: z.string().url().default('https://your-project.supabase.co'),
   SUPABASE_ANON_KEY: z.string().min(1).default('your-anon-key'),
-  SUPABASE_SERVICE_KEY: z.string().min(1).default('your-service-key'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).default('your-service-role-key'),
+  SUPABASE_JWT_SECRET: z.string().min(1).default('your-jwt-secret'),
   
   // JWT Configuration
   JWT_SECRET: z.string().min(32).default('your-jwt-secret-minimum-32-characters-long'),
