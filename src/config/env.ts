@@ -2,7 +2,7 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 
 // Load environment variables
-dotenv.config({ path: '.env.dev' });
+dotenv.config({ path: '.env.development' });
 dotenv.config({ path: '.env' });
 dotenv.config();
 
