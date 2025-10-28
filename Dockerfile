@@ -26,12 +26,22 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application
-RUN pnpm install
 RUN pnpm build
 
 # ! BUILDCACHE STEP
-# Alias for builder stage to maintain compatibility with remote buildcache images
-FROM builder AS buildcache
+# Optimized build stage for caching - includes dev dependencies for building
+FROM base AS buildcache
+WORKDIR /app
+RUN corepack enable pnpm
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json pnpm-lock.yaml* ./
+COPY src ./src
+COPY tsconfig.json ./
+COPY openapi.json ./
+
+# Install all dependencies (including dev) for building, then build
+RUN pnpm install --frozen-lockfile
+RUN pnpm build
 
 # ! DEVELOPMENT STEP
 # Development image with hot reload and all dependencies
@@ -61,9 +71,13 @@ RUN adduser --system --uid 1001 gympal
 
 # Copy the built application
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/openapi.json ./openapi.json
+
+# Install only production dependencies
+RUN corepack enable pnpm
+COPY --from=deps /app/node_modules ./node_modules
+RUN pnpm install --prod --frozen-lockfile
 
 # Create a non-root user
 USER gympal

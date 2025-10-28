@@ -14,6 +14,12 @@ services:
       - ./supabase/migrations:/docker-entrypoint-initdb.d
     networks:
       - gympal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # # (optional) Redis for caching and sessions
   # redis:
@@ -40,7 +46,7 @@ services:
       PORT: 3000
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET:-development_jwt_secret_key_minimum_32_characters_long}
       JWT_EXPIRY: ${JWT_EXPIRY:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000,http://localhost:3001,http://localhost:5173}
@@ -53,11 +59,18 @@ services:
       - .:/app
       - /app/node_modules
     depends_on:
-      - postgres
-      # - redis
+      postgres:
+        condition: service_started
     networks:
       - gympal-network
     command: pnpm run dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Alternative API service using buildcache stage for faster builds
   api-buildcache:
@@ -71,7 +84,7 @@ services:
       PORT: 3001
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       JWT_SECRET: ${JWT_SECRET:-development_jwt_secret_key_minimum_32_characters_long}
       JWT_EXPIRY: ${JWT_EXPIRY:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000,http://localhost:3001,http://localhost:5173}
@@ -80,14 +93,19 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
     ports:
       - "3001:3001"
-    volumes:
-      - .:/app
-      - /app/node_modules
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
     networks:
       - gympal-network
     command: pnpm run dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     profiles:
       - buildcache
 
@@ -100,4 +118,3 @@ networks:
     driver: bridge
 
 # Note: This configuration uses Supabase Cloud for the database
-# Local PostgreSQL and Redis services have been removed
