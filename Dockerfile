@@ -69,17 +69,20 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 gympal
 
-# Copy the built application
+# Install pnpm and copy dependencies
+RUN corepack enable pnpm
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy the built application and lockfile
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml* ./
 COPY --from=builder /app/openapi.json ./openapi.json
 
 # Install only production dependencies
-RUN corepack enable pnpm
-COPY --from=deps /app/node_modules ./node_modules
 RUN pnpm install --prod --frozen-lockfile
 
-# Create a non-root user
+# Change to non-root user
 USER gympal
 
 # Expose the port the app runs on
