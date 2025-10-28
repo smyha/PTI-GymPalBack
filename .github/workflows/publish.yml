@@ -49,8 +49,8 @@ jobs:
             ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }}
+          cache-to: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }},mode=max
 
       # - name: Set up SSH for GitOps repo
       #   uses: webfactory/ssh-agent@v0.9.0
