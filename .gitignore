@@ -30,6 +30,7 @@ env.development
 # Build outputs
 build/
 out/
+dist/
 
 # Logs
 logs/
