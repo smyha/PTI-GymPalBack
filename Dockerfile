@@ -91,5 +91,5 @@ EXPOSE 3000
 ENV PORT=3000
 
 # Start the application
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]
 # CMD ["npm", "start"] slower build
