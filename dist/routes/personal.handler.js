@@ -1,8 +1,22 @@
+/**
+ * Personal Data Handlers Module
+ * 
+ * This module manages personal user information:
+ * - Physical information (age, weight, height, body fat)
+ * - Fitness profile (experience level, goals, preferences)
+ * - Workout preferences and equipment availability
+ * - Injury history and medical restrictions
+ * 
+ * All routes require authentication as they contain sensitive personal data.
+ */
+
 import { Hono } from 'hono';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { getCompletePersonalData, getPersonalInfo, upsertPersonalInfo, getFitnessProfile, upsertFitnessProfile } from '../services/personal.service.js';
 import { z } from 'zod';
+
+// Hono router instance for personal data routes
 const personal = new Hono();
 // ============================================================================
 // VALIDATION SCHEMAS

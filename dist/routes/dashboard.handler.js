@@ -1,3 +1,19 @@
+/**
+ * Dashboard Handlers Module
+ * 
+ * This module manages dashboard and analytics operations:
+ * - User dashboard overview
+ * - Statistics and metrics
+ * - Recent activity feed
+ * - Workout progress tracking
+ * - Analytics and insights
+ * - Leaderboards
+ * - Calendar data
+ * 
+ * All routes require authentication and provide personalized data
+ * based on the authenticated user.
+ */
+
 import { Hono } from 'hono';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
@@ -5,6 +21,8 @@ import { getUserDashboard, getDashboardStats, getRecentActivity, getWorkoutProgr
 import { DashboardSchemas } from '../doc/schemas.js';
 import { sendError } from '../shared/utils/response.js';
 import '../shared/types/hono.types.js';
+
+// Hono router instance for dashboard routes
 const dashboardHandler = new Hono();
 /**
  * @openapi

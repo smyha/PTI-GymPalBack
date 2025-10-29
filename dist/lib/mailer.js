@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { env } from '../config/env.js';
+import { env } from '../core/config/env.js';
 import { emailLogger, logEmailSent, logEmailError } from './logger.js';
 // Create email transporter
 const createTransporter = () => {

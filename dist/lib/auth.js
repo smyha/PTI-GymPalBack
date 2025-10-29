@@ -3,7 +3,7 @@
  * Utilities for Supabase Auth integration
  * We use Supabase Auth tokens directly - no custom JWT generation
  */
-import { supabase } from '../config/supabase.js';
+import { supabase } from '../core/config/database.js';
 // ============================================================================
 // AUTH RESPONSE HELPERS
 // ============================================================================

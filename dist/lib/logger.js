@@ -3,7 +3,7 @@
  * Centralized logging using Pino for high-performance structured logging
  */
 import pino from 'pino';
-import { env } from '../config/env.js';
+import { env } from '../core/config/env.js';
 // Log levels
 export const LOG_LEVELS = {
     FATAL: 'fatal',

@@ -1,3 +1,16 @@
+/**
+ * Social Handlers Module
+ * 
+ * This module manages all social features:
+ * - Post creation, editing, and deletion
+ * - Post likes and interactions
+ * - Comments on posts
+ * - User following/followers system
+ * 
+ * All routes require authentication and use schema validation.
+ * Social features enable users to share workouts, progress, and connect.
+ */
+
 import { Hono } from 'hono';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
@@ -5,6 +18,8 @@ import { listPosts, createPost, getPost, updatePost, deletePost, likePost, getPo
 import { SocialSchemas } from '../doc/schemas.js';
 import { sendError } from '../shared/utils/response.js';
 import '../shared/types/hono.types.js';
+
+// Hono router instance for social routes
 const socialHandler = new Hono();
 /**
  * @openapi
@@ -22,6 +37,33 @@ const socialHandler = new Hono();
  *         description: Posts retrieved successfully
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
+ */
+/**
+ * Handler: List social posts
+ * 
+ * Endpoint: GET /api/v1/social/posts
+ * 
+ * Process:
+ * 1. Validates authentication and pagination parameters
+ * 2. Retrieves posts from followed users and public posts
+ * 3. Returns paginated feed of posts with metadata
+ * 
+ * Query parameters:
+ * - page: Page number (default: 1)
+ * - limit: Results per page (default: 20)
+ * 
+ * Post feed includes:
+ * - Posts from users you follow
+ * - Public posts from all users
+ * - Post content, author, likes, comments count
+ * - Timestamp and engagement metrics
+ * 
+ * Requires: Valid authentication token
+ * 
+ * Responses:
+ * - 200: Posts retrieved successfully
+ * - 401: User not authenticated
+ * - 500: Internal server error
  */
 socialHandler.get('/posts', authMiddleware, validationMiddleware({ query: SocialSchemas.listPostsQuery }), async (c) => {
     try {

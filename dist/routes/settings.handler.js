@@ -1,3 +1,21 @@
+/**
+ * Settings Handlers Module
+ * 
+ * This module manages all user settings and preferences:
+ * - General settings
+ * - Notification preferences
+ * - Privacy settings
+ * - User preferences
+ * - Fitness settings
+ * - Social settings
+ * - Data export/import
+ * - Account management
+ * - Activity log
+ * 
+ * All routes require authentication and allow users to customize
+ * their application experience and manage their account.
+ */
+
 import { Hono } from 'hono';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
@@ -5,6 +23,8 @@ import { getUserSettings, updateUserSettings, getNotificationSettings, updateNot
 import { SettingsSchemas } from '../doc/schemas.js';
 import { sendError } from '../shared/utils/response.js';
 import '../shared/types/hono.types.js';
+
+// Hono router instance for settings routes
 const settingsHandler = new Hono();
 /**
  * @openapi

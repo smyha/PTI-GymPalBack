@@ -1,3 +1,15 @@
+/**
+ * User Handlers Module
+ * 
+ * This module manages all user-related operations:
+ * - Profile management (get and update)
+ * - User search
+ * - User statistics and achievements
+ * - Account deletion
+ * 
+ * All modification routes require authentication and data validation.
+ */
+
 import { Hono } from 'hono';
 import { validationMiddleware } from '../shared/middleware/validation.middleware.js';
 import { authMiddleware } from '../shared/middleware/auth.middleware.js';
@@ -5,6 +17,8 @@ import { getUserProfile, updateProfile, getUserById, searchUsers, getUserStats, 
 import { UserSchemas } from '../doc/schemas.js';
 import { sendError } from '../shared/utils/response.js';
 import '../shared/types/hono.types.js';
+
+// Hono router instance for user routes
 const userHandler = new Hono();
 /**
  * @openapi
@@ -24,7 +38,23 @@ const userHandler = new Hono();
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-// GET /api/v1/users/profile
+/**
+ * Handler: Get authenticated user profile
+ * 
+ * Endpoint: GET /api/v1/users/profile
+ * 
+ * Process:
+ * 1. Validates user authentication via middleware
+ * 2. Retrieves complete profile of authenticated user from database
+ * 3. Returns all profile information (personal data, settings, etc.)
+ * 
+ * Requires: Valid authentication token
+ * 
+ * Responses:
+ * - 200: Profile retrieved successfully
+ * - 401: User not authenticated
+ * - 500: Internal server error
+ */
 userHandler.get('/profile', authMiddleware, async (c) => {
     try {
         return await getUserProfile(c);
@@ -59,7 +89,29 @@ userHandler.get('/profile', authMiddleware, async (c) => {
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-// PUT /api/v1/users/profile
+/**
+ * Handler: Update authenticated user profile
+ * 
+ * Endpoint: PUT /api/v1/users/profile
+ * 
+ * Process:
+ * 1. Validates authentication and request body data
+ * 2. Updates provided profile fields (allows partial updates)
+ * 3. Returns updated profile
+ * 
+ * Updatable fields:
+ * - Personal information (name, username, bio, avatar)
+ * - Fitness level and physical measurements
+ * - Preferences and settings
+ * 
+ * Requires: Valid authentication token
+ * 
+ * Responses:
+ * - 200: Profile updated successfully
+ * - 400: Validation error in provided data
+ * - 401: User not authenticated
+ * - 500: Internal server error
+ */
 userHandler.put('/profile', authMiddleware, validationMiddleware({ body: UserSchemas.updateProfileBody }), async (c) => {
     try {
         const body = c.get('validatedBody');
@@ -97,10 +149,32 @@ userHandler.put('/profile', authMiddleware, validationMiddleware({ body: UserSch
  *       200:
  *         description: Users found successfully
  */
-// GET /api/v1/users/search
+/**
+ * Handler: Search users
+ * 
+ * Endpoint: GET /api/v1/users/search
+ * 
+ * Process:
+ * 1. Validates search parameters (query, page, limit)
+ * 2. Performs search by username or full name
+ * 3. Returns paginated results of users matching the search
+ * 
+ * Search parameters:
+ * - q: Search term (required)
+ * - page: Page number (default: 1)
+ * - limit: Results per page (default: 10)
+ * 
+ * Note: This endpoint does NOT require authentication (public search)
+ * 
+ * Responses:
+ * - 200: Search results retrieved successfully
+ * - 400: Validation error in parameters
+ * - 500: Internal server error
+ */
 userHandler.get('/search', validationMiddleware({ query: UserSchemas.searchUsersQuery }), async (c) => {
     try {
         const query = c.get('validatedQuery');
+        // Calculates pagination
         const page = parseInt(query.page || '1');
         const limit = parseInt(query.limit || '10');
         const offset = (page - 1) * limit;
@@ -131,7 +205,29 @@ userHandler.get('/search', validationMiddleware({ query: UserSchemas.searchUsers
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-// GET /api/v1/users/:id
+/**
+ * Handler: Get public user information by ID
+ * 
+ * Endpoint: GET /api/v1/users/:id
+ * 
+ * Process:
+ * 1. Validates user ID is a valid UUID
+ * 2. Retrieves public user information from database
+ * 3. Returns visible data according to user's privacy settings
+ * 
+ * Returned information:
+ * - Basic public information (username, name, avatar)
+ * - Public statistics (if enabled)
+ * - Public achievements (if enabled)
+ * 
+ * Note: This endpoint does NOT require authentication, but respects
+ * the privacy settings of the queried user
+ * 
+ * Responses:
+ * - 200: User information retrieved successfully
+ * - 404: User not found
+ * - 500: Internal server error
+ */
 userHandler.get('/:id', validationMiddleware({ params: UserSchemas.getUserParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
@@ -162,7 +258,30 @@ userHandler.get('/:id', validationMiddleware({ params: UserSchemas.getUserParams
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-// GET /api/v1/users/:id/stats
+/**
+ * Handler: Get user statistics
+ * 
+ * Endpoint: GET /api/v1/users/:id/stats
+ * 
+ * Process:
+ * 1. Validates user ID
+ * 2. Calculates and aggregates user statistics (completed workouts, exercises performed, etc.)
+ * 3. Returns user's public statistics
+ * 
+ * Included statistics:
+ * - Total completed workouts
+ * - Total exercises performed
+ * - Total training time
+ * - Unlocked achievements
+ * - Ranking and position
+ * 
+ * Note: Respects user's privacy settings
+ * 
+ * Responses:
+ * - 200: Statistics retrieved successfully
+ * - 404: User not found
+ * - 500: Internal server error
+ */
 userHandler.get('/:id/stats', validationMiddleware({ params: UserSchemas.getUserParams }), async (c) => {
     try {
         const params = c.get('validatedParams');
@@ -195,7 +314,30 @@ userHandler.get('/:id/stats', validationMiddleware({ params: UserSchemas.getUser
  *       404:
  *         $ref: '#/components/responses/NotFoundError'
  */
-// GET /api/v1/users/:id/achievements
+/**
+ * Handler: Get user achievements
+ * 
+ * Endpoint: GET /api/v1/users/:id/achievements
+ * 
+ * Process:
+ * 1. Validates user ID and pagination parameters
+ * 2. Retrieves list of achievements unlocked by the user
+ * 3. Returns achievements with detailed information (unlock date, description, etc.)
+ * 
+ * Pagination parameters:
+ * - page: Page number (default: 1)
+ * - limit: Results per page (default: 20)
+ * 
+ * Achievement information:
+ * - Achievement type (e.g., "First workout", "100 workouts completed")
+ * - Unlock date
+ * - Description and reward
+ * 
+ * Responses:
+ * - 200: Achievements retrieved successfully
+ * - 404: User not found
+ * - 500: Internal server error
+ */
 userHandler.get('/:id/achievements', validationMiddleware({ params: UserSchemas.getUserParams }), validationMiddleware({ query: UserSchemas.paginationQuery }), async (c) => {
     try {
         const params = c.get('validatedParams');
@@ -233,7 +375,28 @@ userHandler.get('/:id/achievements', validationMiddleware({ params: UserSchemas.
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-// DELETE /api/v1/users/account
+/**
+ * Handler: Delete authenticated user account
+ * 
+ * Endpoint: DELETE /api/v1/users/account
+ * 
+ * Process:
+ * 1. Validates authentication and deletion confirmation
+ * 2. Verifies body contains required confirmation (body.confirmation === "DELETE")
+ * 3. Executes complete account deletion and all its data
+ * 
+ * Warning: This operation is IRREVERSIBLE
+ * 
+ * Requires:
+ * - Valid authentication token
+ * - Explicit confirmation in body: { confirmation: "DELETE" }
+ * 
+ * Responses:
+ * - 200: Account deleted successfully
+ * - 400: Confirmation not provided or invalid
+ * - 401: User not authenticated
+ * - 500: Internal server error
+ */
 userHandler.delete('/account', authMiddleware, validationMiddleware({ body: UserSchemas.deleteAccountBody }), async (c) => {
     try {
         const body = c.get('validatedBody');
@@ -243,4 +406,5 @@ userHandler.delete('/account', authMiddleware, validationMiddleware({ body: User
         return sendError(c, 'INTERNAL_ERROR', 'Failed to delete account', 500, error.message);
     }
 });
+
 export default userHandler;
