@@ -112,10 +112,10 @@ export const SOCIAL_ROUTES = {
 // PERSONAL ROUTES
 // ============================================================================
 export const PERSONAL_ROUTES = {
-  INFO: '/',
-  UPDATE_INFO: '/',
-  FITNESS_PROFILE: '/fitness-profile',
-  UPDATE_FITNESS_PROFILE: '/fitness-profile',
+  INFO: '/info',
+  UPDATE_INFO: '/info',
+  FITNESS_PROFILE: '/fitness',
+  UPDATE_FITNESS_PROFILE: '/fitness',
 } as const;
 
 // ============================================================================

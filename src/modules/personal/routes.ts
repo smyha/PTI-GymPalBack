@@ -11,6 +11,7 @@
  */
 
 import { Hono } from 'hono';
+import { Context } from 'hono';
 import { auth } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validation.js';
 import { personalSchemas } from './schemas.js';
@@ -68,6 +69,33 @@ personalRoutes.use('*', auth);
  * - 200: Complete personal data retrieved successfully
  * - 401: User not authenticated
  * - 500: Internal server error
+ */
+personalRoutes.get('/', async (c: Context) => {
+  const user = c.get('user') as { id: string; email?: string };
+  try {
+    const [info, fitness] = await Promise.all([
+      personalHandlers.getInfo(c),
+      personalHandlers.getFitnessProfile(c),
+    ]);
+    // Combine both responses
+    const infoData = await info.json();
+    const fitnessData = await fitness.json();
+    return c.json({
+      success: true,
+      data: {
+        personalInfo: infoData.data || infoData,
+        fitnessProfile: fitnessData.data || fitnessData,
+      },
+    }, 200);
+  } catch (error: any) {
+    throw error;
+  }
+});
+
+/**
+ * Handler: Get personal physical information
+ * 
+ * Endpoint: GET /api/v1/personal/info
  */
 personalRoutes.get(PERSONAL_ROUTES.INFO, personalHandlers.getInfo);
 

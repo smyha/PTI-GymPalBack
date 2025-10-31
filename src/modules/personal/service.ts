@@ -9,6 +9,7 @@ import type { UpdatePersonalInfoData, UpdateFitnessProfileData } from './types.j
 export const personalService = {
   /**
    * Gets personal information for a user
+   * Returns object with null values by default instead of empty object
    */
   async getPersonalInfo(userId: string): Promise<any> {
     const { data, error } = await selectRow('user_personal_info', (q) => q.eq('user_id', userId));
@@ -17,7 +18,15 @@ export const personalService = {
       throw new Error(`Failed to get personal info: ${error.message}`);
     }
 
-    return data || {};
+    // Return object with null values if no data exists (instead of empty object)
+    // This prevents 404 errors when user hasn't set personal info yet
+    return data || {
+      age: null,
+      weight_kg: null,
+      height_cm: null,
+      body_fat_percentage: null,
+      updated_at: null,
+    };
   },
 
   /**
@@ -45,6 +54,7 @@ export const personalService = {
 
   /**
    * Gets fitness profile for a user
+   * Returns object with null values by default instead of empty object
    */
   async getFitnessProfile(userId: string): Promise<any> {
     const { data, error } = await selectRow('user_fitness_profile', (q) => q.eq('user_id', userId));
@@ -53,7 +63,14 @@ export const personalService = {
       throw new Error(`Failed to get fitness profile: ${error.message}`);
     }
 
-    return data || {};
+    // Return object with null values if no data exists (instead of empty object)
+    return data || {
+      experience_level: null,
+      primary_goal: null,
+      secondary_goals: null,
+      workout_frequency: null,
+      updated_at: null,
+    };
   },
 
   /**

@@ -41,6 +41,9 @@ export const personalHandlers = {
       // Get personal information from service
       const info = await personalService.getPersonalInfo(user.id);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Personal info retrieved');
+
       // Return personal information
       return sendSuccess(c, info);
     } catch (error: any) {
@@ -74,6 +77,9 @@ export const personalHandlers = {
       // Update personal information in service
       const info = await personalService.updatePersonalInfo(user.id, data);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Personal info updated');
+
       // Return updated information
       return sendUpdated(c, info);
     } catch (error: any) {
@@ -105,6 +111,9 @@ export const personalHandlers = {
       // Get fitness profile from service
       const profile = await personalService.getFitnessProfile(user.id);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Fitness profile retrieved');
+
       // Return fitness profile
       return sendSuccess(c, profile);
     } catch (error: any) {
@@ -138,6 +147,9 @@ export const personalHandlers = {
       // Update fitness profile in service
       const profile = await personalService.updateFitnessProfile(user.id, data);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Fitness profile updated');
+
       // Return updated profile
       return sendUpdated(c, profile);
     } catch (error: any) {
