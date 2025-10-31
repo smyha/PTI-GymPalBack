@@ -20,19 +20,33 @@ const getClientIP = (c: any): string => {
 
 /**
  * Rate limiting middleware
+ * 
+ * Uses user ID for authenticated requests to provide better rate limiting
+ * for authenticated users vs anonymous users. For authenticated requests,
+ * uses user ID; for anonymous requests, uses IP address.
  */
 export const rateLimit = createMiddleware(async (c, next) => {
-  const clientIP = getClientIP(c);
+  // Use user ID if authenticated (may not be set if auth middleware runs after)
+  // Otherwise fall back to IP address
+  let identifier: string;
+  try {
+    const user = c.get('user') as { id?: string } | undefined;
+    identifier = user?.id || getClientIP(c);
+  } catch {
+    // If user not in context yet (auth middleware runs after), use IP
+    identifier = getClientIP(c);
+  }
+  
   const windowMs = parseInt(env.RATE_LIMIT_WINDOW_MS);
   const maxRequests = parseInt(env.RATE_LIMIT_MAX_REQUESTS);
   const now = Date.now();
 
   // Get or create rate limit entry
-  const entry = rateLimitStore.get(clientIP);
+  const entry = rateLimitStore.get(identifier);
 
   if (!entry || now > entry.resetTime) {
     // First request or window expired - reset counter
-    rateLimitStore.set(clientIP, {
+    rateLimitStore.set(identifier, {
       count: 1,
       resetTime: now + windowMs,
     });
@@ -43,9 +57,15 @@ export const rateLimit = createMiddleware(async (c, next) => {
     // Check if limit exceeded
     if (entry.count > maxRequests) {
       const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-      throw new HTTPException(429, {
-        message: 'Too many requests',
-      });
+      // Return proper error response instead of throwing 429
+      return c.json({
+        success: false,
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: 'Too many requests',
+          retryAfter,
+        },
+      }, 429);
     }
   }
 
