@@ -122,36 +122,62 @@ export const exerciseService = {
     const { page = 1, limit = 20, search, muscle_group, equipment, difficulty } = filters;
     const offset = (page - 1) * limit;
 
-    let query = supabase
-      .from('exercises')
-      .select('*')
-      .or(`user_id.eq.${userId},is_public.eq.true`)
-      .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false });
+    // Get public exercises and user exercises separately, then combine
+    // This avoids issues with OR queries when user_id might be null for system exercises
+    const [publicExercisesResult, userExercisesResult] = await Promise.all([
+      supabase
+        .from('exercises')
+        .select('*')
+        .eq('is_public', true),
+      supabase
+        .from('exercises')
+        .select('*')
+        .eq('user_id', userId),
+    ]);
 
+    if (publicExercisesResult.error && userExercisesResult.error) {
+      throw new Error(`Failed to get exercises: ${publicExercisesResult.error.message}`);
+    }
+
+    // Combine exercises, removing duplicates (user exercises that are also public)
+    const publicExercises = publicExercisesResult.data || [];
+    const userExercises = (userExercisesResult.data || []).filter(
+      (e: any) => !e.is_public // Only include user exercises that aren't public
+    );
+    let combined = [...publicExercises, ...userExercises];
+
+    // Apply filters
     if (search) {
-      query = query.ilike('name', `%${search}%`);
+      combined = combined.filter((e: any) => 
+        e.name?.toLowerCase().includes(search.toLowerCase())
+      );
     }
 
     if (muscle_group) {
-      query = query.eq('muscle_group', muscle_group);
+      combined = combined.filter((e: any) => e.muscle_group === muscle_group);
     }
 
     if (equipment) {
-      query = query.contains('equipment', [equipment]);
+      combined = combined.filter((e: any) => 
+        Array.isArray(e.equipment) ? e.equipment.includes(equipment) : e.equipment === equipment
+      );
     }
 
     if (difficulty) {
-      query = query.eq('difficulty', difficulty);
+      combined = combined.filter((e: any) => e.difficulty === difficulty);
     }
 
-    const { data, error } = await query;
+    // Sort by created_at descending
+    combined.sort((a: any, b: any) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
 
-    if (error) {
-      throw new Error(`Failed to get exercises: ${error.message}`);
-    }
+    // Apply pagination
+    const paginated = combined.slice(offset, offset + limit);
 
-    return (data || []).map(mapExerciseRowToExercise);
+    return paginated.map(mapExerciseRowToExercise);
   },
 
   /**
