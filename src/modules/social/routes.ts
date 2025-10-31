@@ -416,63 +416,60 @@ socialRoutes.delete(SOCIAL_ROUTES.POST_DELETE, validate(socialSchemas.params, 'p
 socialRoutes.post(SOCIAL_ROUTES.POST_LIKE, validate(socialSchemas.params, 'params'), socialHandlers.likePost);
 
 /**
- * @openapi
- * /api/v1/social/posts/{id}/unlike:
- *   post:
- *     tags: [Social]
- *     summary: Unlike post
- *     description: Unlike a post
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Post ID
- *     responses:
- *       200:
- *         description: Post unliked successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     liked:
- *                       type: boolean
- *       404:
- *         description: Post not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ * Handler: Create comment on post
+ * 
+ * Endpoint: POST /api/v1/social/posts/:id/comments
+ * 
+ * Supports replying to comments by including parent_comment_id in body
  */
+socialRoutes.post(
+  SOCIAL_ROUTES.POST_COMMENT_CREATE,
+  validate(socialSchemas.params, 'params'),
+  validate(socialSchemas.createComment, 'body'),
+  socialHandlers.createComment
+);
+
 /**
- * Handler: Unlike post
+ * Handler: List comments for post
  * 
- * Endpoint: POST /api/v1/social/posts/:id/unlike
- * 
- * Process:
- * 1. Validates authentication and post ID
- * 2. Removes like from the post
- * 3. Updates post like count
- * 4. Returns confirmation
- * 
- * Requires: Valid authentication token
- * 
- * Responses:
- * - 200: Post unliked successfully
- * - 404: Post not found
- * - 500: Internal server error
+ * Endpoint: GET /api/v1/social/posts/:id/comments
  */
-socialRoutes.post(SOCIAL_ROUTES.POST_UNLIKE, validate(socialSchemas.params, 'params'), socialHandlers.unlikePost);
+socialRoutes.get(
+  SOCIAL_ROUTES.POST_COMMENTS,
+  validate(socialSchemas.params, 'params'),
+  socialHandlers.listComments
+);
+
+/**
+ * Handler: Delete comment
+ * 
+ * Endpoint: DELETE /api/v1/social/posts/:id/comments/:commentId
+ */
+socialRoutes.delete(
+  SOCIAL_ROUTES.POST_COMMENT_DELETE,
+  validate(socialSchemas.params, 'params'),
+  socialHandlers.deleteComment
+);
+
+/**
+ * Handler: Follow user
+ * 
+ * Endpoint: POST /api/v1/social/users/:userId/follow
+ */
+socialRoutes.post(
+  '/users/:userId/follow',
+  socialHandlers.followUser
+);
+
+/**
+ * Handler: Unfollow user
+ * 
+ * Endpoint: POST /api/v1/social/users/:userId/unfollow
+ */
+socialRoutes.post(
+  '/users/:userId/unfollow',
+  socialHandlers.unfollowUser
+);
 
 export default socialRoutes;
 

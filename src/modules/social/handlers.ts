@@ -18,7 +18,7 @@ import {
   sendDeleted,
   sendNotFound,
 } from '../../core/utils/response.js';
-import type { CreatePostData, UpdatePostData, PostFilters } from './types.js';
+import type { CreatePostData, UpdatePostData, PostFilters, CreateCommentData } from './types.js';
 
 /**
  * Object containing all handlers for the social module.
@@ -79,13 +79,28 @@ export const socialHandlers = {
     // Get authenticated user and validated filters
     const user = c.get('user');
     const filters = c.get('validated') as PostFilters;
+    const { page = 1, limit = 20 } = filters as any;
 
     try {
-      // Find posts matching the filters
-      const posts = await socialService.findMany(user.id, filters);
+      // Find posts matching the filters with author info and pagination
+      const result = await socialService.findMany(user.id, filters);
       
-      // Return list of posts
-      return sendSuccess(c, posts);
+      // Format response with pagination
+      return c.json({
+        success: true,
+        data: result.posts,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total: result.total,
+          totalPages: Math.ceil(result.total / Number(limit)),
+          hasNext: Number(page) < Math.ceil(result.total / Number(limit)),
+          hasPrev: Number(page) > 1,
+        },
+        metadata: {
+          timestamp: new Date().toISOString(),
+        },
+      }, 200);
     } catch (error: any) {
       // Log error
       logger.error({ error, userId: user.id }, 'Failed to get posts');
@@ -242,33 +257,120 @@ export const socialHandlers = {
     }
   },
 
+
   /**
-   * Unlikes a post
-   * 
-   * Removes a like from the authenticated user to the specified post.
-   * Only works if the user has previously liked the post.
-   * 
-   * @param {Context} c - Context with authenticated user and validated ID
-   * @returns {Promise<Response>} JSON response confirming the unlike action
-   * 
-   * @example
-   * // Request: DELETE /api/v1/social/posts/:id/like
-   * // Response: { success: true, data: { liked: false } }
+   * Creates a comment on a post (or replies to another comment)
    */
-  async unlikePost(c: Context) {
-    // Extract authenticated user and post ID
+  async createComment(c: Context) {
     const user = c.get('user');
     const { id } = c.get('validated') as { id: string };
+    const data = c.get('validated') as CreateCommentData;
 
     try {
-      // Unlike the post
-      await socialService.unlikePost(id, user.id);
-      
-      // Return success confirmation
-      return sendSuccess(c, { liked: false });
+      const comment = await socialService.createComment(id, user.id, data);
+      logger.info({ userId: user.id, postId: id, commentId: comment.id }, 'Comment created');
+      return sendCreated(c, comment);
     } catch (error: any) {
-      // Log error
-      logger.error({ error, userId: user.id, postId: id }, 'Failed to unlike post');
+      logger.error({ error, userId: user.id, postId: id }, 'Failed to create comment');
+      throw error;
+    }
+  },
+
+  /**
+   * Lists comments for a post
+   */
+  async listComments(c: Context) {
+    const user = c.get('user');
+    const { id } = c.get('validated') as { id: string };
+    const { page = 1, limit = 20 } = (c.req.query() as any);
+
+    try {
+      const result = await socialService.getComments(id, Number(page), Number(limit));
+      return c.json({
+        success: true,
+        data: result.comments,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total: result.total,
+          totalPages: Math.ceil(result.total / Number(limit)),
+          hasNext: Number(page) < Math.ceil(result.total / Number(limit)),
+          hasPrev: Number(page) > 1,
+        },
+      }, 200);
+    } catch (error: any) {
+      logger.error({ error, userId: user.id, postId: id }, 'Failed to get comments');
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes a comment
+   */
+  async deleteComment(c: Context) {
+    const user = c.get('user');
+    const { id, commentId } = c.get('validated') as { id: string; commentId: string };
+
+    try {
+      const deleted = await socialService.deleteComment(commentId, user.id);
+      if (!deleted) {
+        return sendNotFound(c, 'Comment');
+      }
+      logger.info({ userId: user.id, commentId }, 'Comment deleted');
+      return sendDeleted(c);
+    } catch (error: any) {
+      logger.error({ error, userId: user.id, commentId }, 'Failed to delete comment');
+      throw error;
+    }
+  },
+
+  /**
+   * Follows a user
+   */
+  async followUser(c: Context) {
+    const user = c.get('user');
+    const userId = c.req.param('userId');
+
+    if (!userId) {
+      return sendNotFound(c, 'User ID');
+    }
+
+    try {
+      await socialService.followUser(user.id, userId);
+      logger.info({ followerId: user.id, followingId: userId }, 'User followed');
+      return sendSuccess(c, { followed: true });
+    } catch (error: any) {
+      if (error.message === 'Cannot follow yourself') {
+        return c.json({ 
+          success: false, 
+          error: { code: 'CANNOT_FOLLOW_SELF', message: 'Cannot follow yourself' } 
+        }, 400);
+      }
+      if (error.message === 'User not found') {
+        return sendNotFound(c, 'User');
+      }
+      logger.error({ error, followerId: user.id, followingId: userId }, 'Failed to follow user');
+      throw error;
+    }
+  },
+
+  /**
+   * Unfollows a user
+   */
+  async unfollowUser(c: Context) {
+    const user = c.get('user');
+    const userId = c.req.param('userId');
+
+    if (!userId) {
+      return sendNotFound(c, 'User ID');
+    }
+
+    try {
+      await socialService.unfollowUser(user.id, userId);
+      logger.info({ followerId: user.id, followingId: userId }, 'User unfollowed');
+      return sendSuccess(c, { followed: false });
+    } catch (error: any) {
+      logger.error({ error, followerId: user.id, followingId: userId }, 'Failed to unfollow user');
       throw error;
     }
   },

@@ -24,6 +24,7 @@ export const socialSchemas = {
 
   createComment: z.object({
     content: z.string().min(1).max(500),
+    parent_comment_id: z.string().uuid('Invalid parent comment ID format').optional(),
   }),
 
   listPosts: z.object({
@@ -34,6 +35,7 @@ export const socialSchemas = {
   params: z.object({
     id: z.string().uuid('Invalid ID format'),
     commentId: z.string().uuid('Invalid comment ID format').optional(),
+    userId: z.string().uuid('Invalid user ID format').optional(),
   }),
 } as const;
 
