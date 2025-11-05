@@ -35,50 +35,18 @@ jobs:
       - name: Set SHA tag
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      
-      # Push Docker image to GitHub Container Registry
-      - name: Build and push Docker image
+
+      # Build and push multi-architecture Docker image
+      - name: Build and push Docker image (multi-arch)
         uses: docker/build-push-action@v5
         with:
           context: .
           target: runner
           push: true
+          # Add multi-architecture support
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }}
             ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          # cache-from: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }}
-          # cache-to: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }},mode=max
-      
-      # TODO: Uncomment this when the GitOps repo is ready (PTi-GymPalGitOps)
-      # - name: Set up SSH for GitOps repo
-      #   uses: webfactory/ssh-agent@v0.9.0
-      #   with:
-      #     ssh-private-key: ${{ secrets.GIT_DEPLOY_KEY }}
-
-      # - name: Checkout GitOps repo via SSH
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: ${{ steps.lower.outputs.owner }}/PTI-GymPalGitOps
-      #     path: gitops
-      #     ssh-key: ${{ secrets.GIT_DEPLOY_KEY }}
-
-      # - name: Update image tag in GitOps repo
-      #   run: |
-      #     cd gitops/charts/gympal-backend
-
-      #     # Install yq
-      #     sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-      #     sudo chmod +x /usr/local/bin/yq
-
-      #     # Update image tag
-      #     yq -i '.image.tag = "${{ steps.vars.outputs.sha_short }}"' values.yaml
-
-      #     # Commit and push
-      #     git config user.name "github-actions"
-      #     git config user.email "github-actions@github.com"
-      #     git add values.yaml
-      #     git commit -m "Update gympal-backend image tag to ${{ steps.vars.outputs.sha_short }}"
-      #     git push origin main
-
