@@ -1,4 +1,6 @@
 import { serve } from '@hono/node-server';
+import https from 'node:https';
+import fs from 'node:fs';
 import { logger } from './core/config/logger.js';
 import { env } from './core/config/env.js';
 import { createApp } from './app.js';
@@ -15,40 +17,49 @@ import { createApp } from './app.js';
  */
 async function main() {
   try {
-    // Create and configure the Hono application with all middleware and routes
     const app = await createApp();
 
-    // Parse and validate port number from environment variables
-    const port = parseInt(env.PORT, 10);
-
-    // Validate port is a valid number in the acceptable range
-    if (isNaN(port) || port < 1 || port > 65535) {
+    const port = Number.parseInt(env.PORT, 10);
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
       throw new Error(`Invalid port number: ${env.PORT}`);
     }
 
-    // Start the HTTP server
     logger.info('🚀 Starting GymPal Backend API...');
     logger.info(`📦 Environment: ${env.NODE_ENV}`);
     logger.info(`🔧 Port: ${port}`);
     logger.info(`📊 Log Level: ${env.LOG_LEVEL}`);
 
-    serve({
+    const protocol = env.TLS_ENABLED ? 'https' : 'http';
+
+    const serveOptions: any = {
       fetch: app.fetch,
       port,
+    };
+
+    if (env.TLS_ENABLED) {
+      const certPath = env.TLS_CERT_FILE;
+      const keyPath = env.TLS_KEY_FILE;
+      if (!certPath || !keyPath) {
+        throw new Error('TLS_ENABLED is true but TLS_CERT_FILE or TLS_KEY_FILE is not set');
+      }
+      const cert = fs.readFileSync(certPath);
+      const key = fs.readFileSync(keyPath);
+      serveOptions.createServer = https.createServer;
+      serveOptions.serverOptions = { key, cert };
+    }
+
+    serve(serveOptions, () => {
+      logger.info(`\n✅ Server running on ${protocol}://localhost:${port}`);
+      logger.info(`📚 API Documentation: ${protocol}://localhost:${port}/reference`);
+      logger.info(`📋 OpenAPI Spec: ${protocol}://localhost:${port}/openapi.json`);
+      logger.info(`🏥 Health Check: ${protocol}://localhost:${port}/health`);
+      logger.info(`\n💡 Press Ctrl+C to stop the server\n`);
     });
-
-    logger.info(`\n✅ Server running on http://localhost:${port}`);
-    logger.info(`📚 API Documentation: http://localhost:${port}/reference`);
-    logger.info(`📋 OpenAPI Spec: http://localhost:${port}/openapi.json`);
-    logger.info(`🏥 Health Check: http://localhost:${port}/health`);
-    logger.info(`\n💡 Press Ctrl+C to stop the server\n`);
-
   } catch (error) {
     logger.error({ error }, '❌ Failed to start server');
     process.exit(1);
   }
 }
 
-// Start the application
 main();
 

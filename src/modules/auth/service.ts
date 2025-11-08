@@ -6,8 +6,7 @@
 
 import { supabase, supabaseAdmin } from '../../core/config/database.js';
 import { selectRow } from '../../core/config/database-helpers.js';
-import { logger } from '../../core/config/logger.js';
-import { env } from '../../core/config/env.js';
+ 
 import {
   InvalidCredentialsError,
   EmailNotVerifiedError,
@@ -24,8 +23,6 @@ export const authService = {
    * Registers a new user account
    */
   async register(data: RegisterData): Promise<AuthResponse> {
-    logger.info({ email: data.email, username: data.username }, 'User registration attempt');
-
     // Check if user already exists
     try {
       const { data: existingUser } = await selectRow('profiles', (q) =>
@@ -33,7 +30,6 @@ export const authService = {
       );
 
       if (existingUser) {
-        logger.warn({ username: data.username }, 'Registration failed: username already exists');
         throw new UserAlreadyExistsError(`User already exists: ${data.username}`);
       }
     } catch (error: any) {
@@ -69,8 +65,6 @@ export const authService = {
       throw new InvalidCredentialsError(authError?.message || 'Failed to create user');
     }
 
-    logger.info({ email: data.email, userId: userData.user.id }, 'User registered successfully');
-
     // Return the user data
     return {
       user: {
@@ -88,44 +82,29 @@ export const authService = {
    * Authenticates a user and returns access tokens
    */
   async login(data: LoginData): Promise<AuthResponse> {
-    logger.info({ email: data.email }, 'User login attempt');
-
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     });
 
     if (error) {
-      logger.warn({ email: data.email, error: error.message }, 'Login failed: invalid credentials');
       throw new InvalidCredentialsError('Invalid email or password');
     }
 
     // Check if user exists
     if (!authData.user) {
-      logger.warn({ email: data.email }, 'Login failed: no user data');
       throw new InvalidCredentialsError('Invalid email or password');
     }
 
     // Check if email is confirmed
     if (!authData.user.email_confirmed_at) {
-      logger.warn({ email: data.email, userId: authData.user.id }, 'Login failed: email not verified');
       throw new EmailNotVerifiedError('Please confirm your email before logging in');
     }
 
     // Check if session exists
     if (!authData.session) {
-      logger.error({ email: data.email, userId: authData.user.id }, 'Login failed: no session created');
       throw new InvalidCredentialsError('Failed to create session');
     }
-
-    logger.info(
-      {
-        email: data.email,
-        userId: authData.user.id,
-        username: authData.user.user_metadata?.username,
-      },
-      'User login successful'
-    );
 
     // Return the user data with tokens
     return {
@@ -174,29 +153,21 @@ export const authService = {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      logger.error({ error: error.message }, 'Logout error');
       throw new Error(`Logout failed: ${error.message}`);
     }
-
-    logger.info('User logged out successfully');
   },
 
   /**
    * Refreshes the access token using a refresh token
    */
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
-    logger.info('Token refresh attempt');
-
     const { data, error } = await supabase.auth.refreshSession({
       refresh_token: refreshToken,
     });
 
     if (error || !data.session || !data.user) {
-      logger.warn({ error: error?.message }, 'Token refresh failed');
       throw new InvalidTokenError('Invalid or expired refresh token');
     }
-
-    logger.info({ userId: data.user.id }, 'Token refreshed successfully');
 
     return {
       user: {
@@ -219,27 +190,20 @@ export const authService = {
    * This method updates the password directly if a session exists.
    */
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    logger.info('Password reset attempt');
-
     // Try to update password directly (requires valid session)
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });
 
     if (updateError) {
-      logger.error({ error: updateError.message }, 'Password reset failed');
       throw new InvalidTokenError(`Password reset failed: ${updateError.message}`);
     }
-
-    logger.info('Password reset successful');
   },
 
   /**
    * Changes password for authenticated user
    */
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
-    logger.info({ userId }, 'Password change attempt');
-
     // First verify current password by attempting to sign in
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || user.id !== userId) {
@@ -252,11 +216,8 @@ export const authService = {
     });
 
     if (error) {
-      logger.error({ error: error.message, userId }, 'Password change failed');
       throw new InvalidCredentialsError(`Password change failed: ${error.message}`);
     }
-
-    logger.info({ userId }, 'Password changed successfully');
   },
 
   /**
@@ -279,8 +240,6 @@ export const authService = {
       const { error: rpcError } = await supabase.rpc('delete_own_account');
 
       if (rpcError) {
-        // If the function doesn't exist or fails, log and try the admin method as a fallback
-        logger.warn({ rpcError }, 'Database function delete_own_account failed or not found, falling back to admin delete.');
         // Fallback to admin delete if the RPC fails (e.g., function not deployed yet)
         const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
         if (authError) {
@@ -288,11 +247,8 @@ export const authService = {
         }
       }
     } catch (error: any) {
-      logger.error({ error }, 'Error during account deletion process');
       throw error;
     }
-
-    logger.info({ userId }, 'Account deleted successfully');
   },
 };
 

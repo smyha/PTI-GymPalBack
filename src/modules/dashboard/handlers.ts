@@ -40,6 +40,9 @@ export const dashboardHandlers = {
       // Get dashboard overview from service
       const overview = await dashboardService.getOverview(user.id);
       
+      // Log success with key metrics present
+      logger.info({ userId: user.id }, 'Dashboard overview retrieved');
+
       // Return overview data
       return sendSuccess(c, overview);
     } catch (error: any) {
@@ -72,6 +75,9 @@ export const dashboardHandlers = {
       // Get statistics for the specified period
       const stats = await dashboardService.getStats(user.id, period);
       
+      // Log success with requested period
+      logger.info({ userId: user.id, period }, 'Dashboard stats retrieved');
+
       // Return statistics
       return sendSuccess(c, stats);
     } catch (error: any) {
@@ -104,6 +110,9 @@ export const dashboardHandlers = {
       // Get recent activity from service
       const activity = await dashboardService.getRecentActivity(user.id, limit);
       
+      // Log success with item count
+      logger.info({ userId: user.id, count: Array.isArray(activity) ? activity.length : 0 }, 'Recent activity retrieved');
+
       // Return activity list
       return sendSuccess(c, activity);
     } catch (error: any) {

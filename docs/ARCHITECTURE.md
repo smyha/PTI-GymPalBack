@@ -442,6 +442,85 @@ graph TB
 
 ---
 
+## API Response Formats
+
+### Standard Response Structure
+
+All API endpoints follow a consistent response format:
+
+```json
+{
+  "success": true,
+  "message": "Optional success message",
+  "data": { ... },
+  "metadata": {
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+### Paginated Responses
+
+List endpoints with pagination include:
+
+```json
+{
+  "success": true,
+  "data": [ ... ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+### Error Responses
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error message",
+    "details": { ... }
+  },
+  "metadata": {
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+## Recent Improvements
+
+### Enhanced Social Posts
+
+- **Author Information**: All post responses now include complete author details (id, username, fullName, avatar)
+- **Engagement Metrics**: Posts include `likesCount`, `commentsCount`, and `isLiked` status
+- **Standardized Pagination**: List endpoints use consistent pagination format with `page`, `limit`, `total`, `totalPages`, `hasNext`, `hasPrev`
+
+### Improved Personal Information
+
+- **Null Values by Default**: Personal info and fitness profile endpoints return objects with null values for unset fields instead of 404 errors
+- This ensures frontend always receives valid response structures, improving error handling
+
+### Enhanced User Profiles
+
+- **Embedded Statistics**: User profile endpoint (`GET /api/v1/users/profile`) now includes user statistics directly in the response
+- Statistics include: `totalWorkouts`, `totalExercises`, `totalPosts`
+- Reduces the need for separate API calls to fetch user statistics
+
+### Consistent Data Formats
+
+- All timestamps use ISO 8601 format (`YYYY-MM-DDTHH:mm:ssZ`)
+- All UUIDs are consistently formatted
+- IDs are always present and accessible at the root level or within `data` object
+
+---
+
 ## Module Details
 
 ### Authentication Module
@@ -451,7 +530,7 @@ graph TB
 - Account deletion
 
 ### Users Module
-- Profile management (CRUD operations)
+- Profile management (CRUD operations) with embedded statistics
 - User search and discovery
 - User statistics and analytics
 
@@ -487,7 +566,16 @@ graph TB
 
 ---
 
-**Documentation Version**: 1.0.0  
+**Documentation Version**: 1.1.0  
 **Last Updated**: 2024  
 **Maintained by**: GymPal Development Team
+
+### Changelog
+
+#### Version 1.1.0 (2024)
+- Enhanced social posts with author information and engagement metrics
+- Improved personal information endpoints (null values by default)
+- User profiles now include embedded statistics
+- Standardized pagination across list endpoints
+- Consistent response formats across all endpoints
 

@@ -45,10 +45,35 @@ export async function createApp() {
   app.use('*', logging);
   
   // CORS configuration for cross-origin requests
+  // Use a function to echo the allowed origin so browsers receive a specific
+  // Access-Control-Allow-Origin header rather than a wildcard. This helps
+  // when credentials are used and ensures only configured origins are allowed.
   app.use('*', cors({
-    origin: corsOrigins,
+    origin: (incomingOrigin: string | null) => {
+      if (!incomingOrigin) return null;
+      return corsOrigins.includes(incomingOrigin) ? incomingOrigin : null;
+    },
     credentials: corsCredentials,
   }));
+
+  // Explicit preflight (OPTIONS) handler to ensure browsers get the correct
+  // CORS headers for credentialed requests and custom headers.
+  app.options('*', (c) => {
+    const origin = c.req.header('origin') || '';
+    const allowed = corsOrigins.includes(origin);
+
+    const headers: Record<string, string> = {
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    };
+
+    if (allowed) {
+      headers['Access-Control-Allow-Origin'] = origin;
+      if (corsCredentials) headers['Access-Control-Allow-Credentials'] = 'true';
+    }
+
+  return new Response(null, { status: 204, headers });
+  });
   
   // Rate limiting to prevent abuse
   app.use('*', rateLimit);

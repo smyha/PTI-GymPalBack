@@ -37,8 +37,13 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   
   // CORS Configuration
-  CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  CORS_ORIGIN: z.string().default('http://localhost:3000,https://localhost:3000'),
   CORS_CREDENTIALS: z.coerce.boolean().default(true),
+
+  // TLS / HTTPS
+  TLS_ENABLED: z.coerce.boolean().default(false),
+  TLS_CERT_FILE: z.string().optional().default(''),
+  TLS_KEY_FILE: z.string().optional().default(''),
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default('900000'), // 15 minutes

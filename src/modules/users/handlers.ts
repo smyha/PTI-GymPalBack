@@ -50,8 +50,32 @@ export const userHandlers = {
         return sendNotFound(c, 'User profile');
       }
       
-      // Return profile successfully
-      return sendSuccess(c, profile);
+      // Get user stats to include in response
+      const stats = await userService.getUserStats(user.id);
+      
+      // Get email from context if available
+      const userEmail = c.get('userEmail') as string | undefined;
+      
+      // Format response with profile and stats
+      const response = {
+        id: profile.id,
+        email: userEmail || null,
+        username: profile.username,
+        fullName: profile.full_name,
+        avatar: profile.avatar_url,
+        createdAt: profile.created_at,
+        stats: {
+          totalWorkouts: stats.workout_count || 0,
+          totalExercises: stats.exercise_count || 0,
+          totalPosts: stats.post_count || 0,
+        },
+      };
+      
+      // Log success
+      logger.info({ userId: user.id }, 'User profile retrieved');
+
+      // Return profile successfully with stats
+      return sendSuccess(c, response);
     } catch (error: any) {
       // Log error for debugging
       logger.error({ error, userId: user.id }, 'Failed to get profile');
@@ -87,6 +111,9 @@ export const userHandlers = {
         return sendNotFound(c, 'User');
       }
       
+      // Log success
+      logger.info({ userId: id }, 'User retrieved');
+
       // Return found profile
       return sendSuccess(c, profile);
     } catch (error: any) {
@@ -154,6 +181,9 @@ export const userHandlers = {
       // Execute search in service with provided filters
       const users = await userService.search(filters);
       
+      // Log success with result count
+      logger.info({ count: Array.isArray(users) ? users.length : 0 }, 'Users search retrieved');
+      
       // Return list of found users
       return sendSuccess(c, users);
     } catch (error: any) {
@@ -184,6 +214,9 @@ export const userHandlers = {
     try {
       // Get user statistics from service
       const stats = await userService.getUserStats(user.id);
+      
+      // Log success
+      logger.info({ userId: user.id }, 'User stats retrieved');
       
       // Return statistics
       return sendSuccess(c, stats);

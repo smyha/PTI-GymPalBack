@@ -109,11 +109,41 @@ graph LR
 
 ### Handlers
 
-- `getProfile`: Gets complete authenticated user profile
+- `getProfile`: Gets complete authenticated user profile with statistics included
 - `updateProfile`: Updates profile information
 - `getById`: Gets public information of a user
 - `search`: Searches users with filters
 - `getStats`: Gets aggregated user statistics
+
+### Response Format
+
+#### GET `/profile`
+
+Returns user profile with embedded statistics:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "fitnesslover",
+    "fullName": "John Doe",
+    "avatar": "url",
+    "createdAt": "2024-01-15T10:30:00Z",
+    "stats": {
+      "totalWorkouts": 45,
+      "totalExercises": 120,
+      "totalPosts": 23
+    }
+  }
+}
+```
+
+The `stats` object contains aggregated statistics:
+- `totalWorkouts`: Total number of workouts created by the user
+- `totalExercises`: Total number of exercises created by the user
+- `totalPosts`: Total number of social posts created by the user
 
 ---
 
@@ -243,12 +273,63 @@ graph TD
 ### Handlers
 
 - `createPost`: Creates a new social post
-- `listPosts`: Lists posts with filters and pagination
-- `getPost`: Gets post details
+- `listPosts`: Lists posts with filters, pagination, and enriched author information
+- `getPost`: Gets post details with author information, likes, and comments count
 - `updatePost`: Updates a post (author only)
 - `deletePost`: Deletes a post (author only)
 - `likePost`: Likes a post
 - `unlikePost`: Removes like from a post
+
+### Response Format
+
+#### GET `/posts`
+
+Returns paginated list of posts with enriched information:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "content": "Post content",
+      "image_urls": [],
+      "hashtags": [],
+      "workout_id": "uuid",
+      "is_public": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z",
+      "author": {
+        "id": "uuid",
+        "username": "fitnesslover",
+        "fullName": "John Doe",
+        "avatar": "url"
+      },
+      "likesCount": 42,
+      "commentsCount": 5,
+      "isLiked": false
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+Each post includes:
+- **author**: Complete author information (id, username, fullName, avatar)
+- **likesCount**: Total number of likes on the post
+- **commentsCount**: Total number of comments on the post
+- **isLiked**: Whether the authenticated user has liked this post
+
+#### GET `/posts/{id}`
+
+Returns a single post with the same enriched format as the list endpoint.
 
 ### Data Model
 
@@ -335,17 +416,55 @@ Module for managing user personal data: health information, goals, body measurem
 
 | Method | Route | Description | Auth Required |
 |--------|------|-------------|---------------|
-| GET | `/` | Gets personal data | Yes |
-| PUT | `/` | Updates personal data | Yes |
-| GET | `/goals` | Gets user goals | Yes |
-| PUT | `/goals` | Updates goals | Yes |
+| GET | `/info` | Gets personal physical information | Yes |
+| PUT | `/info` | Updates personal physical information | Yes |
+| GET | `/fitness-profile` | Gets fitness profile | Yes |
+| PUT | `/fitness-profile` | Updates fitness profile | Yes |
 
 ### Handlers
 
-- `getPersonalData`: Gets all personal data
-- `updatePersonalData`: Updates personal data
-- `getGoals`: Gets user goals
-- `updateGoals`: Updates goals
+- `getInfo`: Gets personal physical information (age, weight, height, body fat)
+- `updateInfo`: Updates personal physical information
+- `getFitnessProfile`: Gets fitness profile (experience level, goals, preferences)
+- `updateFitnessProfile`: Updates fitness profile
+
+### Response Format
+
+#### GET `/info`
+
+Returns personal information with null values for fields that haven't been set yet (prevents 404 errors):
+
+```json
+{
+  "success": true,
+  "data": {
+    "age": null,
+    "weight_kg": null,
+    "height_cm": null,
+    "body_fat_percentage": null,
+    "updated_at": null
+  }
+}
+```
+
+This ensures the frontend always receives a valid response structure, even when the user hasn't completed their personal information yet.
+
+#### GET `/fitness-profile`
+
+Similar behavior - returns fitness profile with null values for unset fields:
+
+```json
+{
+  "success": true,
+  "data": {
+    "experience_level": null,
+    "primary_goal": null,
+    "secondary_goals": null,
+    "workout_frequency": null,
+    "updated_at": null
+  }
+}
+```
 
 ---
 

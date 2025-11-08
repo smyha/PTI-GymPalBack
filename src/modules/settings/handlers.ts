@@ -40,6 +40,9 @@ export const settingsHandlers = {
       // Get all settings from service
       const settings = await settingsService.getSettings(user.id);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Settings retrieved');
+
       // Return settings
       return sendSuccess(c, settings);
     } catch (error: any) {
@@ -72,6 +75,9 @@ export const settingsHandlers = {
       // Update settings in service
       const settings = await settingsService.updateSettings(user.id, data);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Settings updated');
+
       // Return updated settings
       return sendUpdated(c, settings);
     } catch (error: any) {
@@ -102,6 +108,9 @@ export const settingsHandlers = {
       // Get notification settings from service
       const settings = await settingsService.getNotificationSettings(user.id);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Notification settings retrieved');
+
       // Return notification settings
       return sendSuccess(c, settings);
     } catch (error: any) {
@@ -135,6 +144,9 @@ export const settingsHandlers = {
       // Update notification settings in service
       const settings = await settingsService.updateNotificationSettings(user.id, data);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Notification settings updated');
+
       // Return updated notification settings
       return sendUpdated(c, settings);
     } catch (error: any) {
@@ -165,6 +177,9 @@ export const settingsHandlers = {
       // Get privacy settings from service
       const settings = await settingsService.getPrivacySettings(user.id);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Privacy settings retrieved');
+
       // Return privacy settings
       return sendSuccess(c, settings);
     } catch (error: any) {
@@ -197,6 +212,9 @@ export const settingsHandlers = {
       // Update privacy settings in service
       const settings = await settingsService.updatePrivacySettings(user.id, data);
       
+      // Log success
+      logger.info({ userId: user.id }, 'Privacy settings updated');
+
       // Return updated privacy settings
       return sendUpdated(c, settings);
     } catch (error: any) {
