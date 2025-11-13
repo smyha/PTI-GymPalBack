@@ -50,9 +50,9 @@ async function main() {
 
     serve(serveOptions, () => {
       logger.info(`\n✅ Server running on ${protocol}://localhost:${port}`);
-      logger.info(`📚 API Documentation: ${protocol}://localhost:${port}/reference`);
-      logger.info(`📋 OpenAPI Spec: ${protocol}://localhost:${port}/openapi.json`);
-      logger.info(`🏥 Health Check: ${protocol}://localhost:${port}/health`);
+      logger.info(`📚 API Documentation: ${protocol}://localhost:${port}/api/reference`);
+      logger.info(`📋 OpenAPI Spec: ${protocol}://localhost:${port}/api/openapi.json`);
+      logger.info(`🏥 Health Check: ${protocol}://localhost:${port}/api/health`);
       logger.info(`\n💡 Press Ctrl+C to stop the server\n`);
     });
   } catch (error) {

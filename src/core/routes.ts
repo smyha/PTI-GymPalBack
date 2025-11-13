@@ -11,9 +11,9 @@ export const API_VERSION = '/api/v1';
 // ============================================================================
 export const SYSTEM_ROUTES = {
   ROOT: '/',
-  HEALTH: '/health',
-  REFERENCE: '/reference',
-  OPENAPI: '/openapi.json',
+  HEALTH: '/api/health',
+  REFERENCE: '/api/reference',
+  OPENAPI: '/api/openapi.json',
 } as const;
 
 // ============================================================================

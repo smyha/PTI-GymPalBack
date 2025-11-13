@@ -5,7 +5,7 @@ import { env } from '../core/config/env.js';
  * Health check plugin
  */
 export const healthPlugin = createMiddleware(async (c, next) => {
-  if (c.req.path === '/health') {
+  if (c.req.path === '/api/health') {
     return c.json({
       status: 'ok',
       environment: env.NODE_ENV,
