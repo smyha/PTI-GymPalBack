@@ -37,19 +37,21 @@ jobs:
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       
       # Push Docker image to GitHub Container Registry
+     # Push Docker image to GitHub Container Registry
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          target: runner
+          file: ./Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }}
-            ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:latest
+            ghcr.io/${{ steps.lower.outputs.owner }}/gympalfrontend-frontend:${{ steps.vars.outputs.sha_short }}
+            ghcr.io/${{ steps.lower.outputs.owner }}/gympalfrontend-frontend:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          # cache-from: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }}
-          # cache-to: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }},mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }}
+          ccache-to: type=registry,ref=ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }},mode=max
       
       # TODO: Uncomment this when the GitOps repo is ready (PTi-GymPalGitOps)
       # - name: Set up SSH for GitOps repo
@@ -81,4 +83,5 @@ jobs:
       #     git add values.yaml
       #     git commit -m "Update gympal-backend image tag to ${{ steps.vars.outputs.sha_short }}"
       #     git push origin main
+
 
