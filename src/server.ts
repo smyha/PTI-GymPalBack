@@ -29,30 +29,18 @@ async function main() {
     logger.info(`🔧 Port: ${port}`);
     logger.info(`📊 Log Level: ${env.LOG_LEVEL}`);
 
-    const protocol = env.TLS_ENABLED ? 'https' : 'http';
+    const protocol = env.TLS_ENABLED ? 'http': 'https';
 
     const serveOptions: any = {
       fetch: app.fetch,
       port,
     };
 
-    if (env.TLS_ENABLED) {
-      const certPath = env.TLS_CERT_FILE;
-      const keyPath = env.TLS_KEY_FILE;
-      if (!certPath || !keyPath) {
-        throw new Error('TLS_ENABLED is true but TLS_CERT_FILE or TLS_KEY_FILE is not set');
-      }
-      const cert = fs.readFileSync(certPath);
-      const key = fs.readFileSync(keyPath);
-      serveOptions.createServer = https.createServer;
-      serveOptions.serverOptions = { key, cert };
-    }
-
     serve(serveOptions, () => {
       logger.info(`\n✅ Server running on ${protocol}://localhost:${port}`);
-      logger.info(`📚 API Documentation: ${protocol}://localhost:${port}/reference`);
-      logger.info(`📋 OpenAPI Spec: ${protocol}://localhost:${port}/openapi.json`);
-      logger.info(`🏥 Health Check: ${protocol}://localhost:${port}/health`);
+      logger.info(`📚 API Documentation: ${protocol}://localhost:${port}/api/reference`);
+      logger.info(`📋 OpenAPI Spec: ${protocol}://localhost:${port}/api/openapi.json`);
+      logger.info(`🏥 Health Check: ${protocol}://localhost:${port}/api/health`);
       logger.info(`\n💡 Press Ctrl+C to stop the server\n`);
     });
   } catch (error) {
