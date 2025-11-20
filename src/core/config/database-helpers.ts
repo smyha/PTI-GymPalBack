@@ -4,7 +4,8 @@
  */
 
 import type { Database, TableInsert, TableUpdate } from '../types/index.js';
-import { supabase } from './database.js';
+import { supabaseAdmin } from './database.js';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Type-safe insert helper
@@ -12,12 +13,12 @@ import { supabase } from './database.js';
  */
 export async function insertRow<T extends keyof Database['public']['Tables']>(
   tableName: T,
-  data: TableInsert<T>
+  data: TableInsert<T>,
+  client: SupabaseClient<Database> = supabaseAdmin
 ) {
-  // Use controlled type assertion with proper typing - safer than 'as never'
-  // This works because we validate the type at call site via TableInsert<T>
+  // Use provided client (or default to admin/global)
   const insertValue = data as Database['public']['Tables'][T]['Insert'] & Record<string, unknown>;
-  return supabase.from(tableName).insert(insertValue as any).select().single();
+  return client.from(tableName).insert(insertValue as any).select().single();
 }
 
 /**
@@ -26,11 +27,12 @@ export async function insertRow<T extends keyof Database['public']['Tables']>(
 export async function updateRow<T extends keyof Database['public']['Tables']>(
   tableName: T,
   data: TableUpdate<T>,
-  filter: (builder: any) => any
+  filter: (builder: any) => any,
+  client: SupabaseClient<Database> = supabaseAdmin
 ) {
-  // Use controlled type assertion - safer because TableUpdate<T> ensures correct structure
+  // Use provided client (or default to admin/global)
   const updateValue = data as Database['public']['Tables'][T]['Update'] & Record<string, unknown>;
-  return filter(supabase.from(tableName)).update(updateValue as any).select().single();
+  return filter(client.from(tableName).update(updateValue as any)).select().maybeSingle();
 }
 
 /**
@@ -39,11 +41,12 @@ export async function updateRow<T extends keyof Database['public']['Tables']>(
 export async function upsertRow<T extends keyof Database['public']['Tables']>(
   tableName: T,
   data: TableInsert<T>,
-  options?: { onConflict?: string }
+  options?: { onConflict?: string },
+  client: SupabaseClient<Database> = supabaseAdmin
 ) {
-  // Use controlled type assertion - safer because TableInsert<T> ensures correct structure
+  // Use provided client (or default to admin/global)
   const upsertValue = data as Database['public']['Tables'][T]['Insert'] & Record<string, unknown>;
-  return supabase.from(tableName).upsert(upsertValue as any, options).select().single();
+  return client.from(tableName).upsert(upsertValue as any, options).select().maybeSingle();
 }
 
 /**
@@ -51,9 +54,10 @@ export async function upsertRow<T extends keyof Database['public']['Tables']>(
  */
 export async function selectRow<T extends keyof Database['public']['Tables']>(
   tableName: T,
-  filter: (builder: any) => any
+  filter: (builder: any) => any,
+  client: SupabaseClient<Database> = supabaseAdmin
 ) {
-  return filter(supabase.from(tableName)).select().single();
+  return filter(client.from(tableName).select()).maybeSingle();
 }
 
 /**
@@ -61,9 +65,10 @@ export async function selectRow<T extends keyof Database['public']['Tables']>(
  */
 export async function selectRows<T extends keyof Database['public']['Tables']>(
   tableName: T,
-  filter?: (builder: any) => any
+  filter?: (builder: any) => any,
+  client: SupabaseClient<Database> = supabaseAdmin
 ) {
-  const query = supabase.from(tableName);
+  const query = client.from(tableName);
   if (filter) {
     return filter(query).select();
   }

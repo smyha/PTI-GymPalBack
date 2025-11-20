@@ -13,6 +13,7 @@ import { settingsService } from './service.js';
 import { logger } from '../../core/config/logger.js';
 import { sendSuccess, sendUpdated } from '../../core/utils/response.js';
 import type { UpdateSettingsData, UpdateNotificationSettingsData, UpdatePrivacySettingsData } from './types.js';
+import { getUserFromCtx } from '../../core/utils/context.js';
 
 /**
  * Object containing all handlers for the settings module.
@@ -34,7 +35,7 @@ export const settingsHandlers = {
    */
   async getSettings(c: Context) {
     // Get authenticated user
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     
     try {
       // Get all settings from service
@@ -68,7 +69,7 @@ export const settingsHandlers = {
    */
   async updateSettings(c: Context) {
     // Get authenticated user and validated update data
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const data = c.get('validated') as UpdateSettingsData;
     
     try {
@@ -102,7 +103,7 @@ export const settingsHandlers = {
    */
   async getNotificationSettings(c: Context) {
     // Get authenticated user
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     
     try {
       // Get notification settings from service
@@ -137,7 +138,7 @@ export const settingsHandlers = {
    */
   async updateNotificationSettings(c: Context) {
     // Get authenticated user and validated update data
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const data = c.get('validated') as UpdateNotificationSettingsData;
     
     try {
@@ -171,7 +172,7 @@ export const settingsHandlers = {
    */
   async getPrivacySettings(c: Context) {
     // Get authenticated user
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     
     try {
       // Get privacy settings from service
@@ -205,7 +206,7 @@ export const settingsHandlers = {
    */
   async updatePrivacySettings(c: Context) {
     // Get authenticated user and validated update data
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const data = c.get('validated') as UpdatePrivacySettingsData;
     
     try {

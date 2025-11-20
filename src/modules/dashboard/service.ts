@@ -5,7 +5,9 @@
 
 import { selectRows } from '../../core/config/database-helpers.js';
 import { supabase } from '../../core/config/database.js';
-import type { DashboardStats, RecentActivity } from './types.js';
+import { AppError, ErrorCode } from '../../core/utils/error-types.js';
+import type * as Unified from '../../core/types/unified.types.js';
+import type { RecentActivity } from './types.js';
 
 export const dashboardService = {
   /**
@@ -44,7 +46,7 @@ export const dashboardService = {
   /**
    * Gets statistics for a specific period
    */
-  async getStats(userId: string, period: string): Promise<DashboardStats> {
+  async getStats(userId: string, period: string): Promise<Unified.DashboardStats> {
     let startDate: Date;
     const now = new Date();
 
@@ -71,8 +73,8 @@ export const dashboardService = {
 
     const totalWorkouts = workouts?.length || 0;
     // Ensure proper typing for duration aggregation
-    const workoutsWithDuration = (workouts || []) as Array<{ duration?: number }>;
-    const totalDuration = workoutsWithDuration.reduce((sum, w) => sum + (w.duration || 0), 0);
+    const workoutsWithDuration = (workouts || []) as Array<{ duration_minutes?: number }>;
+    const totalDuration = workoutsWithDuration.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
     const averageDuration = totalWorkouts > 0 ? totalDuration / totalWorkouts : 0;
 
     // Get exercises count

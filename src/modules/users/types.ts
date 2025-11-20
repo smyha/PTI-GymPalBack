@@ -1,17 +1,15 @@
+/**
+ * User Module Types
+ * Request types inferred from Zod schemas
+ * Response types use core/types/unified.types.ts
+ */
+
 import { z } from 'zod';
 import { userSchemas } from './schemas.js';
 
+// Request types (from Zod schemas)
 export type UpdateProfileData = z.infer<typeof userSchemas.updateProfile>;
 export type SearchUsersFilters = z.infer<typeof userSchemas.search>;
 
-export interface UserProfile {
-  id: string;
-  username: string;
-  full_name?: string;
-  avatar_url?: string;
-  bio?: string;
-  fitness_level?: string;
-  created_at: string;
-  updated_at: string;
-}
+// Response types use Unified.UserProfile from core/types/unified.types.ts
 

@@ -17,6 +17,7 @@ import {
   sendNotFound,
 } from '../../core/utils/response.js';
 import type { UpdateProfileData, SearchUsersFilters } from './types.js';
+import { getUserFromCtx } from '../../core/utils/context.js';
 
 /**
  * Object containing all handlers for the users module.
@@ -39,43 +40,22 @@ export const userHandlers = {
    */
   async getProfile(c: Context) {
     // Get the user from context (added by authentication middleware)
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
 
     try {
       // Call the service to get the complete profile
       const profile = await userService.getProfile(user.id);
-      
+
       // If profile doesn't exist, return 404 error
       if (!profile) {
         return sendNotFound(c, 'User profile');
       }
-      
-      // Get user stats to include in response
-      const stats = await userService.getUserStats(user.id);
-      
-      // Get email from context if available
-      const userEmail = c.get('userEmail') as string | undefined;
-      
-      // Format response with profile and stats
-      const response = {
-        id: profile.id,
-        email: userEmail || null,
-        username: profile.username,
-        fullName: profile.full_name,
-        avatar: profile.avatar_url,
-        createdAt: profile.created_at,
-        stats: {
-          totalWorkouts: stats.workout_count || 0,
-          totalExercises: stats.exercise_count || 0,
-          totalPosts: stats.post_count || 0,
-        },
-      };
-      
+
       // Log success
       logger.info({ userId: user.id }, 'User profile retrieved');
 
-      // Return profile successfully with stats
-      return sendSuccess(c, response);
+      // Return profile successfully
+      return sendSuccess(c, profile);
     } catch (error: any) {
       // Log error for debugging
       logger.error({ error, userId: user.id }, 'Failed to get profile');
@@ -105,12 +85,12 @@ export const userHandlers = {
     try {
       // Find user by ID in the service
       const profile = await userService.getById(id);
-      
+
       // If user doesn't exist, return 404 error
       if (!profile) {
         return sendNotFound(c, 'User');
       }
-      
+
       // Log success
       logger.info({ userId: id }, 'User retrieved');
 
@@ -140,21 +120,26 @@ export const userHandlers = {
    */
   async updateProfile(c: Context) {
     // Get authenticated user and validated data from request body
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const data = c.get('validated') as UpdateProfileData;
 
     try {
       // Update profile in service with new data
       const profile = await userService.updateProfile(user.id, data);
-      
+
       // Log action for audit
       logger.info({ userId: user.id }, 'Profile updated');
-      
+
       // Return updated profile with 200 status code
       return sendUpdated(c, profile);
     } catch (error: any) {
-      // Log error for debugging
-      logger.error({ error, userId: user.id }, 'Failed to update profile');
+      // Log error with details for debugging
+      logger.error({
+        error: error?.message || String(error),
+        errorStack: error?.stack,
+        userId: user.id,
+        data: data
+      }, 'Failed to update profile');
       throw error;
     }
   },
@@ -180,10 +165,10 @@ export const userHandlers = {
     try {
       // Execute search in service with provided filters
       const users = await userService.search(filters);
-      
+
       // Log success with result count
       logger.info({ count: Array.isArray(users) ? users.length : 0 }, 'Users search retrieved');
-      
+
       // Return list of found users
       return sendSuccess(c, users);
     } catch (error: any) {
@@ -209,20 +194,20 @@ export const userHandlers = {
    */
   async getStats(c: Context) {
     // Get authenticated user
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
 
     try {
       // Get user statistics from service
       const stats = await userService.getUserStats(user.id);
-      
+
       // Log success
       logger.info({ userId: user.id }, 'User stats retrieved');
-      
+
       // Return statistics
       return sendSuccess(c, stats);
     } catch (error: any) {
       // Log error for later analysis
-      logger.error({ error, userId: user.id }, 'Failed to get user stats');
+      logger.error({ error: error.message, userId: user.id }, 'Failed to get user stats');
       throw error;
     }
   },

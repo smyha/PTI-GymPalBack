@@ -8,10 +8,9 @@ export const userSchemas = {
     avatar_url: z.string().url().optional().nullable(),
     date_of_birth: z.string().optional(),
     gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
-    height: z.number().int().min(50).max(300).optional(),
-    weight: z.number().min(20).max(500).optional(),
     timezone: z.string().optional(),
     language: z.string().min(2).max(5).optional(),
+    // Note: height and weight are managed via /api/v1/personal/info endpoint
   }),
 
   search: z.object({

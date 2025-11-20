@@ -16,6 +16,7 @@ import workoutRoutes from './modules/workouts/routes.js';
 import exerciseRoutes from './modules/exercises/routes.js';
 import socialRoutes from './modules/social/routes.js';
 import dashboardRoutes from './modules/dashboard/routes.js';
+import calendarRoutes from './modules/calendar/routes.js';
 import personalRoutes from './modules/personal/routes.js';
 import settingsRoutes from './modules/settings/routes.js';
 
@@ -106,6 +107,7 @@ export async function createApp() {
         exercises: BASE_ROUTES.EXERCISES,
         workouts: BASE_ROUTES.WORKOUTS,
         social: BASE_ROUTES.SOCIAL,
+        calendar: BASE_ROUTES.CALENDAR,
         personal: BASE_ROUTES.PERSONAL,
         dashboard: BASE_ROUTES.DASHBOARD,
         settings: BASE_ROUTES.SETTINGS,
@@ -124,8 +126,11 @@ export async function createApp() {
   app.route(BASE_ROUTES.EXERCISES, exerciseRoutes);
   app.route(BASE_ROUTES.SOCIAL, socialRoutes);
   app.route(BASE_ROUTES.DASHBOARD, dashboardRoutes);
+  app.route(BASE_ROUTES.CALENDAR, calendarRoutes);
   app.route(BASE_ROUTES.PERSONAL, personalRoutes);
   app.route(BASE_ROUTES.SETTINGS, settingsRoutes);
+
+  // Calendar routes are provided by `calendarRoutes` mounted above.
 
   // ============================================================================
   // ERROR HANDLING

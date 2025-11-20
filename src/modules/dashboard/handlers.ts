@@ -12,6 +12,7 @@ import { Context } from 'hono';
 import { dashboardService } from './service.js';
 import { logger } from '../../core/config/logger.js';
 import { sendSuccess } from '../../core/utils/response.js';
+import { getUserFromCtx } from '../../core/utils/context.js';
 
 /**
  * Object containing all handlers for the dashboard module.
@@ -34,7 +35,7 @@ export const dashboardHandlers = {
    */
   async getOverview(c: Context) {
     // Get authenticated user
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     
     try {
       // Get dashboard overview from service
@@ -68,7 +69,7 @@ export const dashboardHandlers = {
    */
   async getStats(c: Context) {
     // Get authenticated user and time period
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { period } = c.get('validated') as { period: string };
     
     try {
@@ -103,7 +104,7 @@ export const dashboardHandlers = {
    */
   async getRecentActivity(c: Context) {
     // Get authenticated user and activity limit
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { limit } = c.get('validated') as { limit: number };
     
     try {

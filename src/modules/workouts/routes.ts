@@ -334,23 +334,23 @@ workoutRoutes.put(
 
 /**
  * Handler: Delete workout plan
- * 
+ *
  * Endpoint: DELETE /api/v1/workouts/:id
- * 
+ *
  * Process:
  * 1. Validates authentication and workout ownership
  * 2. Deletes the workout and all associated exercises
  * 3. Preserves workout sessions history (for statistics)
- * 
+ *
  * Warning: This operation cannot be undone. Deletes:
  * - Workout plan
  * - Exercise associations
  * - Workout metadata
- * 
+ *
  * Note: Workout sessions remain in history for statistics
- * 
+ *
  * Requires: Valid authentication token
- * 
+ *
  * Responses:
  * - 200: Workout deleted successfully
  * - 404: Workout not found or user doesn't have access
@@ -360,6 +360,36 @@ workoutRoutes.delete(
   WORKOUT_ROUTES.DELETE,
   validate(workoutSchemas.params, 'params'),
   workoutHandlers.delete
+);
+
+/**
+ * Handler: Copy an existing workout
+ *
+ * Endpoint: POST /api/v1/workouts/copy/:workoutId
+ *
+ * Process:
+ * 1. Validates authentication
+ * 2. Fetches the source workout by ID
+ * 3. Creates a new workout copy with "(Copy)" appended to the name
+ * 4. Copies all exercises from the source workout to the new one
+ * 5. Returns the newly created workout
+ *
+ * Features:
+ * - Copied workout is owned by the authenticated user
+ * - Copied workout is set as private by default
+ * - All exercises and their properties are duplicated
+ * - Name is automatically modified to indicate it's a copy
+ *
+ * Requires: Valid authentication token
+ *
+ * Responses:
+ * - 201: Workout copied successfully
+ * - 404: Source workout not found
+ * - 500: Internal server error
+ */
+workoutRoutes.post(
+  '/copy/:workoutId',
+  workoutHandlers.copy
 );
 
 export default workoutRoutes;

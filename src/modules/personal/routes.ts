@@ -17,6 +17,7 @@ import { validate } from '../../middleware/validation.js';
 import { personalSchemas } from './schemas.js';
 import { personalHandlers } from './handlers.js';
 import { PERSONAL_ROUTES } from '../../core/routes.js';
+import { getUserFromCtx } from '../../core/utils/context.js';
 
 // Hono router instance for personal data routes
 const personalRoutes = new Hono();
@@ -71,7 +72,8 @@ personalRoutes.use('*', auth);
  * - 500: Internal server error
  */
 personalRoutes.get('/', async (c: Context) => {
-  const user = c.get('user') as { id: string; email?: string };
+  // Ensure authentication and typed user present
+  getUserFromCtx(c);
   try {
     const [info, fitness] = await Promise.all([
       personalHandlers.getInfo(c),

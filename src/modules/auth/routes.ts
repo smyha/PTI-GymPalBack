@@ -189,6 +189,7 @@ authRoutes.post(
  */
 authRoutes.post(
   AUTH_ROUTES.REFRESH,
+  validate(authSchemas.refresh, 'body'),
   authHandlers.refresh
 );
 

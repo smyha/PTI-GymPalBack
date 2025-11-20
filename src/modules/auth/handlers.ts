@@ -18,7 +18,9 @@ import {
   sendDeleted,
 } from '../../core/utils/response.js';
 import { API_MESSAGES, ERROR_CODES } from '../../core/constants/api.js';
+import { ErrorCode } from '../../core/utils/error-types.js';
 import type { RegisterData, LoginData } from './types.js';
+import { getUserFromCtx } from '../../core/utils/context.js';
 
 /**
  * Object containing all handlers for the authentication module.
@@ -50,9 +52,9 @@ export const authHandlers = {
       
       // Log successful registration
       authLogger.info({ email: data.email }, 'User registered successfully');
-      
+
       // Return created user with auth tokens
-      return sendCreated(c, result, result.message || API_MESSAGES.CREATED);
+      return sendCreated(c, result, API_MESSAGES.CREATED);
     } catch (error: any) {
       // Log registration error
       authLogger.error({ error: error.message, code: error.code }, 'Registration error');
@@ -92,9 +94,9 @@ export const authHandlers = {
       
       // Log successful login
       authLogger.info({ email: data.email }, 'User logged in successfully');
-      
+
       // Return user data with auth tokens
-      return sendSuccess(c, result, result.message || API_MESSAGES.SUCCESS);
+      return sendSuccess(c, result, API_MESSAGES.SUCCESS);
     } catch (error: any) {
       // Log login error
       authLogger.error({ error: error.message, code: error.code }, 'Login error');
@@ -126,7 +128,7 @@ export const authHandlers = {
   async getMe(c: Context) {
     try {
       // Get authenticated user from context (added by auth middleware)
-      const user = c.get('user');
+      const user = getUserFromCtx(c);
       
       // Get user details from auth service
       const result = await authService.getMe(user.id);
@@ -201,20 +203,28 @@ export const authHandlers = {
    */
   async refresh(c: Context) {
     try {
-      // Get refresh token from request body
-      const body = await c.req.json();
-      const refreshToken = body.refresh_token || body.refreshToken;
-      
-      // Validate refresh token presence
+      // Get validated refresh token from middleware
+      const { refresh_token: refreshToken } = (c.get('validated') as { refresh_token: string }) || { refresh_token: null };
+
       if (!refreshToken) {
         return sendError(c, ERROR_CODES.VALIDATION_ERROR, 'Refresh token is required', 400);
       }
 
       // Refresh tokens in auth service
-      const result = await authService.refreshToken(refreshToken);
-      
+      let result;
+      try {
+        result = await authService.refreshToken(refreshToken);
+      } catch (err: any) {
+        // If token expired/invalid, log less aggressively and return 401
+        if (err && err.code === ErrorCode.TOKEN_EXPIRED) {
+          authLogger.warn({ error: err.message }, 'Refresh token expired or invalid');
+          return sendError(c, err.code || ERROR_CODES.UNAUTHORIZED, err.message || 'Token refresh failed', 401);
+        }
+        throw err;
+      }
+
       // Return new tokens
-      return sendSuccess(c, result, result.message || 'Token refreshed successfully');
+      return sendSuccess(c, result, 'Token refreshed successfully');
     } catch (error: any) {
       // Log refresh token error
       authLogger.error({ error: error.message }, 'Refresh token request failed');
@@ -287,7 +297,7 @@ export const authHandlers = {
    */
   async changePassword(c: Context) {
     // Get authenticated user and password change data
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     
     try {
       const { currentPassword, newPassword } = c.get('validated') as { currentPassword: string; newPassword: string };
@@ -339,7 +349,7 @@ export const authHandlers = {
    */
   async deleteAccount(c: Context) {
     // Get authenticated user and account ID
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     
     try {
       const { id } = c.get('validated') as { id: string };

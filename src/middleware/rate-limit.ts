@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { env } from '../core/config/env.js';
 import { sendError } from '../core/utils/response.js';
 import { ERROR_CODES } from '../core/constants/api.js';
+import { getUserFromCtx } from '../core/utils/context.js';
 
 // In-memory store for rate limiting
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -30,8 +31,8 @@ export const rateLimit = createMiddleware(async (c, next) => {
   // Otherwise fall back to IP address
   let identifier: string;
   try {
-    const user = c.get('user') as { id?: string } | undefined;
-    identifier = user?.id || getClientIP(c);
+    const user = getUserFromCtx(c);
+    identifier = user.id || getClientIP(c);
   } catch {
     // If user not in context yet (auth middleware runs after), use IP
     identifier = getClientIP(c);

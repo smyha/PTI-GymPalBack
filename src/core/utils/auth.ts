@@ -36,7 +36,6 @@ export const verifySupabaseToken = async (token: string) => {
     }
     return user;
   } catch (error) {
-    console.error('Token verification failed:', error);
     return null;
   }
 };

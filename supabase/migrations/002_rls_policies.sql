@@ -372,9 +372,14 @@ CREATE POLICY "Users can comment on posts" ON post_comments
 CREATE POLICY "Users can update own comments" ON post_comments
     FOR UPDATE USING (auth.uid() = user_id);
 
--- Users can delete their own comments
+-- Users can delete their own comments or post owner can delete any comment on their post
 CREATE POLICY "Users can delete own comments" ON post_comments
-    FOR DELETE USING (auth.uid() = user_id);
+    FOR DELETE USING (
+        auth.uid() = user_id
+        OR auth.uid() IN (
+            SELECT user_id FROM posts WHERE id = post_comments.post_id
+        )
+    );
 
 -- ============================================================================
 -- POST SHARES POLICIES

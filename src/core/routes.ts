@@ -23,6 +23,7 @@ export const BASE_ROUTES = {
   AUTH: `${API_VERSION}/auth`,
   USERS: `${API_VERSION}/users`,
   EXERCISES: `${API_VERSION}/exercises`,
+  CALENDAR: `${API_VERSION}/calendar`,
   WORKOUTS: `${API_VERSION}/workouts`,
   SOCIAL: `${API_VERSION}/social`,
   PERSONAL: `${API_VERSION}/personal`,

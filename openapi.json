@@ -1703,6 +1703,93 @@
         }
       }
     },
+    "/api/v1/calendar": {
+      "get": {
+        "tags": ["Calendar"],
+        "summary": "Get scheduled workouts for a user",
+        "description": "Retrieve scheduled workouts for the authenticated user. Optional query params month and year filter results.",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          { "name": "month", "in": "query", "schema": { "type": "string" } },
+          { "name": "year", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Scheduled workouts retrieved successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/calendar/add-workout": {
+      "post": {
+        "tags": ["Calendar"],
+        "summary": "Add a workout to a date",
+        "description": "Schedule a workout for the authenticated user on a specific date (YYYY-MM-DD).",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["workout_id","date"],
+                "properties": {
+                  "workout_id": { "type": "string", "format": "uuid" },
+                  "date": { "type": "string", "format": "date" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Workout scheduled successfully" },
+          "400": { "description": "Validation error" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/calendar/{id}": {
+      "put": {
+        "tags": ["Calendar"],
+        "summary": "Update scheduled item",
+        "description": "Update a scheduled workout's date or status",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scheduled_date": { "type": "string", "format": "date" },
+                  "status": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Scheduled item updated" },
+          "400": { "description": "Validation error" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "delete": {
+        "tags": ["Calendar"],
+        "summary": "Delete scheduled item",
+        "description": "Delete a scheduled workout entry",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Scheduled item deleted" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
     "/api/v1/personal": {
       "get": {
         "tags": ["Personal"],

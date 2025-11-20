@@ -14,6 +14,7 @@
 import { Hono } from 'hono';
 import { auth } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validation.js';
+import { validateCombined } from '../../middleware/combined-validation.js';
 import { socialSchemas } from './schemas.js';
 import { socialHandlers } from './handlers.js';
 import { SOCIAL_ROUTES } from '../../core/routes.js';
@@ -163,7 +164,21 @@ socialRoutes.get(SOCIAL_ROUTES.POSTS, validate(socialSchemas.listPosts, 'query')
  * - 401: User not authenticated
  * - 500: Internal server error
  */
-socialRoutes.post(SOCIAL_ROUTES.POST_CREATE, validate(socialSchemas.createPost, 'body'), socialHandlers.createPost);
+// POST /api/v1/social/posts - Create post
+// Supports both JSON with URLs and multipart form-data with file uploads
+// For JSON: apply validation
+// For multipart: validation is handled in the handler
+const createPostMiddleware = async (c: any, next: any) => {
+  const contentType = c.req.header('content-type') || '';
+  if (!contentType.includes('multipart/form-data')) {
+    // Apply validation only for JSON requests
+    return validate(socialSchemas.createPost, 'body')(c, next);
+  }
+  // For multipart, skip validation and let handler deal with it
+  await next();
+};
+
+socialRoutes.post(SOCIAL_ROUTES.POST_CREATE, createPostMiddleware, socialHandlers.createPost);
 
 /**
  * @openapi
@@ -417,15 +432,15 @@ socialRoutes.post(SOCIAL_ROUTES.POST_LIKE, validate(socialSchemas.params, 'param
 
 /**
  * Handler: Create comment on post
- * 
+ *
  * Endpoint: POST /api/v1/social/posts/:id/comments
- * 
+ *
  * Supports replying to comments by including parent_comment_id in body
+ * Uses combined validation to merge params (post_id) and body data
  */
 socialRoutes.post(
   SOCIAL_ROUTES.POST_COMMENT_CREATE,
-  validate(socialSchemas.params, 'params'),
-  validate(socialSchemas.createComment, 'body'),
+  validateCombined(socialSchemas.createComment, ['params', 'body']),
   socialHandlers.createComment
 );
 
@@ -463,12 +478,33 @@ socialRoutes.post(
 
 /**
  * Handler: Unfollow user
- * 
+ *
  * Endpoint: POST /api/v1/social/users/:userId/unfollow
  */
 socialRoutes.post(
   '/users/:userId/unfollow',
   socialHandlers.unfollowUser
+);
+
+/**
+ * Handler: Repost a post (toggle repost/unrepost)
+ *
+ * Endpoint: POST /api/v1/social/posts/:id/repost
+ */
+socialRoutes.post(
+  '/posts/:id/repost',
+  validate(socialSchemas.params, 'params'),
+  socialHandlers.repostPost
+);
+
+/**
+ * Handler: Get user's reposts
+ *
+ * Endpoint: GET /api/v1/social/users/:userId/reposts
+ */
+socialRoutes.get(
+  '/users/:userId/reposts',
+  socialHandlers.getUserReposts
 );
 
 export default socialRoutes;

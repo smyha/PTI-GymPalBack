@@ -24,7 +24,17 @@ export const socialSchemas = {
 
   createComment: z.object({
     content: z.string().min(1).max(500),
+    id: z.string().uuid('Invalid post ID format').optional(), // From URL params /:id (mapped by middleware)
+    post_id: z.string().uuid('Invalid post ID format').optional(), // Will be set by middleware
     parent_comment_id: z.string().uuid('Invalid parent comment ID format').optional(),
+  }).transform(data => {
+    // Map 'id' param to 'post_id' if post_id not already set
+    if (!data.post_id && data.id) {
+      data.post_id = data.id;
+    }
+    // Remove id field from final data
+    const { id, ...rest } = data;
+    return rest;
   }),
 
   listPosts: z.object({

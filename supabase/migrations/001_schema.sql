@@ -187,6 +187,19 @@ CREATE TABLE workout_sessions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Scheduled workouts (calendar entries)
+CREATE TABLE scheduled_workouts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    workout_id UUID NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
+    scheduled_date DATE NOT NULL,
+    status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled','completed','cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_scheduled_workouts_user_id ON scheduled_workouts(user_id);
+CREATE INDEX idx_scheduled_workouts_date ON scheduled_workouts(scheduled_date);
+
 -- Shared workouts
 CREATE TABLE shared_workouts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

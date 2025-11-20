@@ -20,6 +20,7 @@ import {
   sendForbidden,
 } from '../../core/utils/response.js';
 import type { CreateExerciseData, UpdateExerciseData, ExerciseFilters } from './types.js';
+import { getUserFromCtx } from '../../core/utils/context.js';
 
 /**
  * Object containing all handlers for the exercises module.
@@ -43,7 +44,7 @@ export const exerciseHandlers = {
    */
   async create(c: Context) {
     // Extract authenticated user and exercise data
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const data = c.get('validated') as CreateExerciseData;
 
     try {
@@ -78,15 +79,34 @@ export const exerciseHandlers = {
    */
   async list(c: Context) {
     // Get user and validated filters
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const filters = c.get('validated') as ExerciseFilters;
+    const { page = 1, limit = 20 } = filters as any;
 
     try {
       // Find exercises applying the filters
-      const exercises = await exerciseService.findMany(user.id, filters);
-      
-      // Return list of exercises
-      return sendSuccess(c, exercises);
+      const result = await exerciseService.findMany(user.id, filters);
+
+      // Extract data and total from result
+      const exercises = Array.isArray(result) ? result : (result as any)?.data || [];
+      const total = Array.isArray(result) ? result.length : (result as any)?.total || 0;
+
+      // Format response with pagination info
+      return c.json({
+        success: true,
+        data: exercises,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total: total,
+          totalPages: Math.ceil(total / Number(limit)),
+          hasNext: Number(page) * Number(limit) < total,
+          hasPrev: Number(page) > 1,
+        },
+        metadata: {
+          timestamp: new Date().toISOString(),
+        },
+      }, 200);
     } catch (error: any) {
       // Log error
       logger.error({ error, userId: user.id }, 'Failed to get exercises');
@@ -110,7 +130,7 @@ export const exerciseHandlers = {
    */
   async getById(c: Context) {
     // Extract user and exercise ID
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
 
     try {
@@ -235,7 +255,7 @@ export const exerciseHandlers = {
    */
   async update(c: Context) {
     // Extract user, ID and update data
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
     const data = c.get('validated') as UpdateExerciseData;
 
@@ -280,7 +300,7 @@ export const exerciseHandlers = {
    */
   async delete(c: Context) {
     // Extract user and exercise ID
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
 
     try {

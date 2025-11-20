@@ -21,6 +21,7 @@ import {
   sendForbidden,
 } from '../../core/utils/response.js';
 import type { CreateWorkoutData, UpdateWorkoutData, WorkoutFilters } from './types.js';
+import { getUserFromCtx } from '../../core/utils/context.js';
 
 /**
  * Object containing all handlers for the workouts module.
@@ -44,7 +45,7 @@ export const workoutHandlers = {
    */
   async create(c: Context) {
     // Extract authenticated user and validated data from request
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const data = c.get('validated') as CreateWorkoutData;
 
     try {
@@ -79,7 +80,7 @@ export const workoutHandlers = {
    */
   async list(c: Context) {
     // Get authenticated user and validated filters
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const filters = c.get('validated') as WorkoutFilters;
 
     try {
@@ -111,7 +112,7 @@ export const workoutHandlers = {
    */
   async getById(c: Context) {
     // Extract authenticated user and workout ID
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
 
     try {
@@ -152,7 +153,7 @@ export const workoutHandlers = {
    */
   async update(c: Context) {
     // Extract user, ID and update data
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
     const data = c.get('validated') as UpdateWorkoutData;
 
@@ -183,34 +184,34 @@ export const workoutHandlers = {
 
   /**
    * Deletes a workout
-   * 
+   *
    * Permanently deletes a workout from the system. Only the owner
    * can delete their workout. This action cannot be undone.
-   * 
+   *
    * @param {Context} c - Context with authenticated user and validated ID
    * @returns {Promise<Response>} Success response (status 200) confirming deletion
-   * 
+   *
    * @example
    * // Request: DELETE /api/v1/workouts/:id
    * // Response: { success: true, message: "Workout deleted successfully" }
    */
   async delete(c: Context) {
     // Extract authenticated user and workout ID
-    const user = c.get('user');
+    const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
 
     try {
       // Delete workout, verifying ownership
       const deleted = await workoutService.delete(id, user.id);
-      
+
       // If it doesn't exist, return 404 error
       if (!deleted) {
         return sendNotFound(c, 'Workout');
       }
-      
+
       // Log deletion for audit
       logger.info({ userId: user.id, workoutId: id }, 'Workout deleted');
-      
+
       // Return deletion confirmation
       return sendDeleted(c);
     } catch (error: any) {
@@ -220,6 +221,45 @@ export const workoutHandlers = {
       }
       // Log other errors
       logger.error({ error, userId: user.id, workoutId: id }, 'Failed to delete workout');
+      throw error;
+    }
+  },
+
+  /**
+   * Copies an existing workout for the current user
+   *
+   * Allows users to copy a workout shared in the social feed or from another user.
+   * Creates a new private workout with the same structure as the source.
+   * The copied workout will have "(Copy)" appended to its name.
+   *
+   * @param {Context} c - Context with authenticated user and source workout ID
+   * @returns {Promise<Response>} JSON response with the copied workout (status 201)
+   *
+   * @example
+   * // Request: POST /api/v1/workouts/copy/:workoutId
+   * // Response: { success: true, data: { id, name: "Original Name (Copy)", ... } }
+   */
+  async copy(c: Context) {
+    // Extract authenticated user and source workout ID
+    const user = getUserFromCtx(c);
+    const sourceWorkoutId = c.req.param('workoutId');
+
+    if (!sourceWorkoutId) {
+      return sendNotFound(c, 'Workout ID');
+    }
+
+    try {
+      // Copy the workout for the current user
+      const copiedWorkout = await workoutService.copyWorkoutForUser(user.id, sourceWorkoutId);
+
+      // Log copy operation
+      logger.info({ userId: user.id, sourceWorkoutId, newWorkoutId: copiedWorkout.id }, 'Workout copied');
+
+      // Return the new copied workout
+      return sendCreated(c, copiedWorkout);
+    } catch (error: any) {
+      // Log errors
+      logger.error({ error, userId: user.id, sourceWorkoutId }, 'Failed to copy workout');
       throw error;
     }
   },

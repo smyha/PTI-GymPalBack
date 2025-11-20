@@ -5,22 +5,28 @@
 
 import { insertRow, selectRow, selectRows, updateRow } from '../../core/config/database-helpers.js';
 import { supabase } from '../../core/config/database.js';
-import type { CreateExerciseData, UpdateExerciseData, ExerciseFilters, Exercise } from './types.js';
+import { AppError, ErrorCode } from '../../core/utils/error-types.js';
+import type * as Unified from '../../core/types/unified.types.js';
+import type { CreateExerciseData, UpdateExerciseData, ExerciseFilters } from './types.js';
 
 /**
- * Helper function to map exercise row to Exercise
+ * Helper function to map exercise row to Unified.Exercise
  */
-function mapExerciseRowToExercise(row: any): Exercise {
+function mapExerciseRowToExercise(row: any): Unified.Exercise {
   return {
     id: row.id,
-    user_id: row.user_id,
     name: row.name,
     description: row.description,
     muscle_group: row.muscle_group,
+    muscle_groups: row.muscle_group ? [row.muscle_group] : [],
     equipment: row.equipment || [],
-    difficulty: row.difficulty,
+    difficulty: row.difficulty || 'beginner',
+    instructions: row.instructions,
+    video_url: row.video_url,
+    image_url: row.image_url,
     tags: row.tags || [],
     is_public: row.is_public || false,
+    created_by: row.user_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -31,38 +37,47 @@ export const exerciseService = {
    * Gets exercise categories
    */
   async getCategories(): Promise<string[]> {
-    const { data, error } = await selectRows('exercises', (q) => q.select('category').not('category', 'is', null));
+    // Return static categories for now
+    // In production, these could be fetched from database
+    const categories = [
+      'Strength Training',
+      'Cardio',
+      'Flexibility',
+      'Balance',
+      'Sports',
+      'Yoga',
+      'Pilates',
+      'HIIT',
+      'CrossFit',
+      'Swimming',
+    ];
 
-    if (error) {
-      throw new Error(`Failed to get categories: ${error.message}`);
-    }
-
-    const categories = new Set<string>();
-    (data || []).forEach((exercise: any) => {
-      if (exercise.category) categories.add(exercise.category);
-    });
-
-    return Array.from(categories);
+    return categories;
   },
 
   /**
    * Gets muscle groups
    */
   async getMuscleGroups(): Promise<string[]> {
-    const { data, error } = await selectRows('exercises', (q) =>
-      q.select('muscle_group').not('muscle_group', 'is', null)
-    );
+    // Return static muscle groups for now
+    // In production, these could be fetched from database
+    const groups = [
+      'Chest',
+      'Back',
+      'Shoulders',
+      'Biceps',
+      'Triceps',
+      'Forearms',
+      'Abs',
+      'Obliques',
+      'Legs',
+      'Glutes',
+      'Hamstrings',
+      'Quadriceps',
+      'Calves',
+    ];
 
-    if (error) {
-      throw new Error(`Failed to get muscle groups: ${error.message}`);
-    }
-
-    const groups = new Set<string>();
-    (data || []).forEach((exercise: any) => {
-      if (exercise.muscle_group) groups.add(exercise.muscle_group);
-    });
-
-    return Array.from(groups);
+    return groups;
   },
 
   /**
@@ -72,7 +87,7 @@ export const exerciseService = {
     const { data, error } = await supabase.from('exercises').select('equipment');
 
     if (error) {
-      throw new Error(`Failed to get equipment types: ${error.message}`);
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get equipment types: ${error.message}`);
     }
 
     const equipmentSet = new Set<string>();
@@ -90,7 +105,7 @@ export const exerciseService = {
   /**
    * Creates a new exercise
    */
-  async create(userId: string, data: CreateExerciseData): Promise<Exercise> {
+  async create(userId: string, data: CreateExerciseData): Promise<Unified.Exercise> {
     const exerciseData: any = {
       user_id: userId,
       name: data.name,
@@ -105,11 +120,11 @@ export const exerciseService = {
     const { data: exercise, error } = await insertRow('exercises', exerciseData);
 
     if (error) {
-      throw new Error(`Failed to create exercise: ${error.message}`);
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create exercise: ${error.message}`);
     }
 
     if (!exercise) {
-      throw new Error('Failed to create exercise');
+      throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to create exercise');
     }
 
     return mapExerciseRowToExercise(exercise);
@@ -118,7 +133,7 @@ export const exerciseService = {
   /**
    * Finds multiple exercises with filters
    */
-  async findMany(userId: string, filters: ExerciseFilters): Promise<Exercise[]> {
+  async findMany(userId: string, filters: ExerciseFilters): Promise<Unified.Exercise[]> {
     const { page = 1, limit = 20, search, muscle_group, equipment, difficulty } = filters;
     const offset = (page - 1) * limit;
 
@@ -136,7 +151,7 @@ export const exerciseService = {
     ]);
 
     if (publicExercisesResult.error && userExercisesResult.error) {
-      throw new Error(`Failed to get exercises: ${publicExercisesResult.error.message}`);
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get exercises: ${publicExercisesResult.error.message}`);
     }
 
     // Combine exercises, removing duplicates (user exercises that are also public)
@@ -148,7 +163,7 @@ export const exerciseService = {
 
     // Apply filters
     if (search) {
-      combined = combined.filter((e: any) => 
+      combined = combined.filter((e: any) =>
         e.name?.toLowerCase().includes(search.toLowerCase())
       );
     }
@@ -158,7 +173,7 @@ export const exerciseService = {
     }
 
     if (equipment) {
-      combined = combined.filter((e: any) => 
+      combined = combined.filter((e: any) =>
         Array.isArray(e.equipment) ? e.equipment.includes(equipment) : e.equipment === equipment
       );
     }
@@ -183,13 +198,13 @@ export const exerciseService = {
   /**
    * Finds an exercise by ID
    */
-  async findById(id: string, userId: string): Promise<Exercise | null> {
+  async findById(id: string, userId: string): Promise<Unified.Exercise | null> {
     const { data, error } = await selectRow('exercises', (q) =>
       q.eq('id', id).or(`user_id.eq.${userId},is_public.eq.true`)
     );
 
     if (error) {
-      throw new Error(`Failed to get exercise: ${error.message}`);
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get exercise: ${error.message}`);
     }
 
     if (!data) {
@@ -202,7 +217,7 @@ export const exerciseService = {
   /**
    * Updates an exercise
    */
-  async update(id: string, userId: string, data: UpdateExerciseData): Promise<Exercise> {
+  async update(id: string, userId: string, data: UpdateExerciseData): Promise<Unified.Exercise> {
     const updateData: any = {};
 
     if (data.name !== undefined) updateData.name = data.name;
@@ -219,11 +234,11 @@ export const exerciseService = {
     );
 
     if (error) {
-      throw new Error(`Failed to update exercise: ${error.message}`);
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update exercise: ${error.message}`);
     }
 
     if (!updated) {
-      throw new Error('Exercise not found or access denied');
+      throw new AppError(ErrorCode.NOT_FOUND, 'Exercise not found or access denied');
     }
 
     return mapExerciseRowToExercise(updated);
@@ -236,7 +251,7 @@ export const exerciseService = {
     const { error } = await supabase.from('exercises').delete().eq('id', id).eq('user_id', userId);
 
     if (error) {
-      throw new Error(`Failed to delete exercise: ${error.message}`);
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to delete exercise: ${error.message}`);
     }
 
     return true;

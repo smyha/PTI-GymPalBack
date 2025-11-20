@@ -305,6 +305,32 @@ export interface Database {
           created_at?: string;
         };
       };
+      scheduled_workouts: {
+        Row: {
+          id: string;
+          user_id: string;
+          workout_id: string;
+          scheduled_date: string;
+          status: 'scheduled' | 'completed' | 'cancelled';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          workout_id: string;
+          scheduled_date: string;
+          status?: 'scheduled' | 'completed' | 'cancelled';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          workout_id?: string;
+          scheduled_date?: string;
+          status?: 'scheduled' | 'completed' | 'cancelled';
+          created_at?: string;
+        };
+      };
       exercises: {
         Row: {
           id: string;
