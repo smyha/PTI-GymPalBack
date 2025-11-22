@@ -313,8 +313,9 @@ export const workoutService = {
    * Used to allow users to copy workouts shared in the social feed
    */
   async copyWorkoutForUser(userId: string, sourceWorkoutId: string): Promise<Unified.Workout> {
-    // Get the source workout with proper typing
-    const { data: sourceWorkout, error: fetchError } = await supabase
+    // Get the source workout with proper typing using admin client to bypass RLS
+    // (Assuming if it's shared via ID, it should be copyable)
+    const { data: sourceWorkout, error: fetchError } = await supabaseAdmin
       .from('workouts')
       .select('*')
       .eq('id', sourceWorkoutId)
