@@ -19,6 +19,7 @@ import dashboardRoutes from './modules/dashboard/routes.js';
 import calendarRoutes from './modules/calendar/routes.js';
 import personalRoutes from './modules/personal/routes.js';
 import settingsRoutes from './modules/settings/routes.js';
+import aiRoutes from './modules/ai/routes.js';
 
 /**
  * Creates and configures the Hono application instance
@@ -111,6 +112,7 @@ export async function createApp() {
         personal: BASE_ROUTES.PERSONAL,
         dashboard: BASE_ROUTES.DASHBOARD,
         settings: BASE_ROUTES.SETTINGS,
+        ai: BASE_ROUTES.AI,
       },
       timestamp: new Date().toISOString(),
     });
@@ -129,6 +131,7 @@ export async function createApp() {
   app.route(BASE_ROUTES.CALENDAR, calendarRoutes);
   app.route(BASE_ROUTES.PERSONAL, personalRoutes);
   app.route(BASE_ROUTES.SETTINGS, settingsRoutes);
+  app.route(BASE_ROUTES.AI, aiRoutes);
 
   // Calendar routes are provided by `calendarRoutes` mounted above.
 
@@ -152,4 +155,3 @@ export async function createApp() {
 
   return app;
 }
-

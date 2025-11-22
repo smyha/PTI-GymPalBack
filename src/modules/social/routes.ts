@@ -527,55 +527,5 @@ socialRoutes.get(
   socialHandlers.getPostCount
 );
 
-/**
- * Handler: Chat with Reception Agent
- * 
- * Endpoint: POST /api/v1/social/chat/agent
- */
-socialRoutes.post(
-  '/chat/agent',
-  socialHandlers.chatWithAgent
-);
-
-/**
- * Handler: Get Chat History (with support for conversationId query param)
- * 
- * Endpoint: GET /api/v1/social/chat/history
- */
-socialRoutes.get(
-  '/chat/history',
-  socialHandlers.getChatHistory
-);
-
-/**
- * Handler: List Conversations
- * 
- * Endpoint: GET /api/v1/social/chat/conversations
- */
-socialRoutes.get(
-  '/chat/conversations',
-  socialHandlers.listConversations
-);
-
-/**
- * Handler: Create Conversation
- * 
- * Endpoint: POST /api/v1/social/chat/conversations
- */
-socialRoutes.post(
-  '/chat/conversations',
-  socialHandlers.createConversation
-);
-
-/**
- * Handler: Delete Conversation
- * 
- * Endpoint: DELETE /api/v1/social/chat/conversations/:id
- */
-socialRoutes.delete(
-  '/chat/conversations/:id',
-  socialHandlers.deleteConversation
-);
-
 export default socialRoutes;
 

@@ -20,7 +20,6 @@ import {
 } from '../../core/utils/response.js';
 import type { CreatePostData, UpdatePostData, PostFilters, CreateCommentData } from './types.js';
 import { getUserFromCtx } from '../../core/utils/context.js';
-import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 
 /**
  * Object containing all handlers for the social module.
@@ -527,108 +526,6 @@ export const socialHandlers = {
       return sendSuccess(c, { count });
     } catch (error: any) {
       logger.error({ error, userId: user.id, targetUserId: userId }, 'Failed to get post count');
-      throw error;
-    }
-  },
-
-  /**
-   * Get chat history for a user
-   */
-  async getChatHistory(c: Context) {
-    const user = getUserFromCtx(c);
-    const userSupabase = c.get('supabase');
-    // Support getting messages for a specific conversation
-    const conversationId = c.req.query('conversationId');
-
-    try {
-      let messages;
-      if (conversationId) {
-        messages = await socialService.getChatMessages(user.id, conversationId, userSupabase);
-      } else {
-        messages = await socialService.getChatHistory(user.id, userSupabase);
-      }
-      return sendSuccess(c, { messages });
-    } catch (error: any) {
-      logger.error({ error, userId: user.id }, 'Failed to get chat history');
-      throw error;
-    }
-  },
-
-  /**
-   * Get user conversations list
-   */
-  async listConversations(c: Context) {
-    const user = getUserFromCtx(c);
-    const userSupabase = c.get('supabase');
-
-    try {
-      const conversations = await socialService.getUserConversations(user.id, userSupabase);
-      return sendSuccess(c, { conversations });
-    } catch (error: any) {
-      logger.error({ error, userId: user.id }, 'Failed to list conversations');
-      throw error;
-    }
-  },
-
-  /**
-   * Create a new conversation
-   */
-  async createConversation(c: Context) {
-    const user = getUserFromCtx(c);
-    const userSupabase = c.get('supabase');
-    const body = await c.req.json();
-    const title = body.title;
-
-    try {
-      const conversation = await socialService.createConversation(user.id, title, userSupabase);
-      return sendCreated(c, conversation);
-    } catch (error: any) {
-      logger.error({ error, userId: user.id }, 'Failed to create conversation');
-      throw error;
-    }
-  },
-
-  /**
-   * Delete a conversation
-   */
-  async deleteConversation(c: Context) {
-    const user = getUserFromCtx(c);
-    const userSupabase = c.get('supabase');
-    const conversationId = c.req.param('id');
-
-    if (!conversationId) {
-      return sendNotFound(c, 'Conversation ID');
-    }
-
-    try {
-      await socialService.deleteConversation(user.id, conversationId, userSupabase);
-      return sendDeleted(c);
-    } catch (error: any) {
-      logger.error({ error, userId: user.id }, 'Failed to delete conversation');
-      throw error;
-    }
-  },
-
-  /**
-   * Sends a message to the Reception Agent
-   */
-  async chatWithAgent(c: Context) {
-    const user = getUserFromCtx(c);
-    const userSupabase = c.get('supabase');
-    const body = await c.req.json();
-    const text = body.text;
-    const conversationId = body.conversationId; // Optional
-    const agentType = body.agentType; // Optional, defaults to 'reception'
-
-    if (!text) {
-      throw new AppError(ErrorCode.INVALID_INPUT, 'Text is required');
-    }
-
-    try {
-      const response = await socialService.sendMessageToAgent(user.id, text, conversationId, agentType, userSupabase);
-      return sendSuccess(c, { response });
-    } catch (error: any) {
-      logger.error({ error, userId: user.id }, 'Failed to chat with agent');
       throw error;
     }
   },

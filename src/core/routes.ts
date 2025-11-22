@@ -30,6 +30,7 @@ export const BASE_ROUTES = {
   ROUTINES: `${API_VERSION}/routines`,
   DASHBOARD: `${API_VERSION}/dashboard`,
   SETTINGS: `${API_VERSION}/settings`,
+  AI: `${API_VERSION}/ai`,
 } as const;
 
 // ============================================================================
@@ -145,6 +146,13 @@ export const SETTINGS_ROUTES = {
 } as const;
 
 // ============================================================================
+// AI ROUTES
+// ============================================================================
+export const AI_ROUTES = {
+  CHAT: '/chat',
+} as const;
+
+// ============================================================================
 // FULL ROUTE PATHS (for documentation and references)
 // ============================================================================
 export const FULL_ROUTES = {
@@ -248,6 +256,11 @@ export const FULL_ROUTES = {
     NOTIFICATIONS: `${BASE_ROUTES.SETTINGS}${SETTINGS_ROUTES.NOTIFICATIONS}`,
     UPDATE_NOTIFICATIONS: `${BASE_ROUTES.SETTINGS}${SETTINGS_ROUTES.UPDATE_NOTIFICATIONS}`,
   },
+
+  // AI
+  AI: {
+    CHAT: `${BASE_ROUTES.AI}${AI_ROUTES.CHAT}`,
+  },
 } as const;
 
 // ============================================================================
@@ -257,4 +270,3 @@ export const ROUTES = {
   ...SYSTEM_ROUTES,
   ...BASE_ROUTES,
 } as const;
-
