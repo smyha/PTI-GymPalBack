@@ -313,13 +313,11 @@ export const workoutService = {
    * Used to allow users to copy workouts shared in the social feed
    */
   async copyWorkoutForUser(userId: string, sourceWorkoutId: string): Promise<Unified.Workout> {
-    // Get the source workout with proper typing using admin client to bypass RLS
-    // (Assuming if it's shared via ID, it should be copyable)
-    const { data: sourceWorkout, error: fetchError } = await supabaseAdmin
-      .from('workouts')
-      .select('*')
-      .eq('id', sourceWorkoutId)
-      .single() as any;
+    // Use RPC to bypass RLS if admin client is not configured with service role
+    const { data: sourceWorkouts, error: fetchError } = await supabaseAdmin
+      .rpc('get_workout_by_id', { p_id: sourceWorkoutId }) as any;
+    
+    const sourceWorkout = sourceWorkouts?.[0];
 
     if (fetchError || !sourceWorkout) {
       throw new AppError(ErrorCode.NOT_FOUND, `Source workout not found: ${fetchError?.message || 'Unknown error'}`);
@@ -345,12 +343,10 @@ export const workoutService = {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to copy workout: ${createError?.message || 'Unknown error'}`);
     }
 
-    // Get workout exercises to copy them
+    // Get workout exercises to copy them using RPC
     try {
-      const { data: exercises, error: exercisesError } = await supabase
-        .from('workout_exercises')
-        .select('*')
-        .eq('workout_id', sourceWorkoutId) as any;
+      const { data: exercises, error: exercisesError } = await supabaseAdmin
+        .rpc('get_workout_exercises_by_workout_id', { p_workout_id: sourceWorkoutId }) as any;
 
       if (!exercisesError && exercises && Array.isArray(exercises) && exercises.length > 0) {
         for (const exercise of exercises) {
@@ -377,11 +373,9 @@ export const workoutService = {
    * Get workout count for a user
    */
   async getUserWorkoutCount(userId: string): Promise<number> {
-    // Use admin client to get accurate count regardless of visibility/RLS
-    const { count, error } = await supabaseAdmin
-      .from('workouts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
+    // Use RPC to get accurate count regardless of visibility/RLS
+    const { data: count, error } = await supabaseAdmin
+      .rpc('count_user_workouts', { p_user_id: userId }) as any;
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get workout count: ${error.message}`);
