@@ -43,6 +43,7 @@ jobs:
           context: .
           target: runner
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:${{ steps.vars.outputs.sha_short }}
             ghcr.io/${{ steps.lower.outputs.owner }}/gympal-backend:latest

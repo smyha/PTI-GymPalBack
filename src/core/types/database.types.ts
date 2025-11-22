@@ -1131,6 +1131,18 @@ export interface Database {
           username: string
         }[]
       }
+      get_workout_by_id: {
+        Args: { p_id: string }
+        Returns: Database['public']['Tables']['workouts']['Row'][]
+      }
+      get_workout_exercises_by_workout_id: {
+        Args: { p_workout_id: string }
+        Returns: Database['public']['Tables']['workout_exercises']['Row'][]
+      }
+      count_user_workouts: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
