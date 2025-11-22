@@ -283,9 +283,11 @@ export const socialService = {
   /**
    * Likes a post (toggles like/unlike)
    */
-  async likePost(postId: string, userId: string): Promise<void> {
+  async likePost(postId: string, userId: string, dbClient?: SupabaseClient<Database>): Promise<void> {
+    const client = dbClient || supabase;
+
     // First check if the like already exists
-    const { data: existingLike, error: checkError } = await supabase
+    const { data: existingLike, error: checkError } = await client
       .from('post_likes')
       .select('id')
       .eq('post_id', postId)
@@ -298,7 +300,7 @@ export const socialService = {
 
     if (existingLike) {
       // Unlike: delete the existing like
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await client
         .from('post_likes')
         .delete()
         .eq('post_id', postId)
@@ -308,13 +310,13 @@ export const socialService = {
         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to unlike post: ${deleteError.message}`);
       }
     } else {
-      // Like: insert new like using admin client to bypass RLS
+      // Like: insert new like using authenticated client
       const likeData = {
         post_id: postId,
         user_id: userId,
       };
 
-      const { error: insertError } = await supabaseAdmin
+      const { error: insertError } = await client
         .from('post_likes')
         .insert(likeData as any);
 
@@ -556,14 +558,16 @@ export const socialService = {
   /**
    * Follows a user
    */
-  async followUser(followerId: string, followingId: string): Promise<void> {
+  async followUser(followerId: string, followingId: string, dbClient?: SupabaseClient<Database>): Promise<void> {
+    const client = dbClient || supabase;
+
     // Prevent self-follow
     if (followerId === followingId) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Cannot follow yourself');
     }
 
     // Check if user exists
-    const { data: user } = await supabase
+    const { data: user } = await client
       .from('profiles')
       .select('id')
       .eq('id', followingId)
@@ -574,7 +578,7 @@ export const socialService = {
     }
 
     // Check if already following
-    const { data: existingFollow } = await supabase
+    const { data: existingFollow } = await client
       .from('follows')
       .select('id')
       .eq('follower_id', followerId)
@@ -592,7 +596,7 @@ export const socialService = {
       following_id: followingId,
     };
 
-    const { error } = await insertRow('follows', followData);
+    const { error } = await insertRow('follows', followData, client);
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to follow user: ${error.message}`);
     }
@@ -601,8 +605,9 @@ export const socialService = {
   /**
    * Unfollows a user
    */
-  async unfollowUser(followerId: string, followingId: string): Promise<void> {
-    const { error } = await supabase
+  async unfollowUser(followerId: string, followingId: string, dbClient?: SupabaseClient<Database>): Promise<void> {
+    const client = dbClient || supabase;
+    const { error } = await client
       .from('follows')
       .delete()
       .eq('follower_id', followerId)

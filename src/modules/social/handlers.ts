@@ -289,10 +289,11 @@ export const socialHandlers = {
     // Extract authenticated user and post ID
     const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
+    const supabase = c.get('supabase');
 
     try {
       // Like the post
-      await socialService.likePost(id, user.id);
+      await socialService.likePost(id, user.id, supabase);
 
       // Return success confirmation
       return sendSuccess(c, { liked: true });
@@ -400,13 +401,14 @@ export const socialHandlers = {
   async followUser(c: Context) {
     const user = getUserFromCtx(c);
     const userId = c.req.param('userId');
+    const supabase = c.get('supabase');
 
     if (!userId) {
       return sendNotFound(c, 'User ID');
     }
 
     try {
-      await socialService.followUser(user.id, userId);
+      await socialService.followUser(user.id, userId, supabase);
       logger.info({ followerId: user.id, followingId: userId }, 'User followed');
       return sendSuccess(c, { followed: true });
     } catch (error: any) {
@@ -430,13 +432,14 @@ export const socialHandlers = {
   async unfollowUser(c: Context) {
     const user = getUserFromCtx(c);
     const userId = c.req.param('userId');
+    const supabase = c.get('supabase');
 
     if (!userId) {
       return sendNotFound(c, 'User ID');
     }
 
     try {
-      await socialService.unfollowUser(user.id, userId);
+      await socialService.unfollowUser(user.id, userId, supabase);
       logger.info({ followerId: user.id, followingId: userId }, 'User unfollowed');
       return sendSuccess(c, { followed: false });
     } catch (error: any) {
