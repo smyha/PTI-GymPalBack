@@ -20,6 +20,7 @@ import {
 } from '../../core/utils/response.js';
 import type { CreatePostData, UpdatePostData, PostFilters, CreateCommentData } from './types.js';
 import { getUserFromCtx } from '../../core/utils/context.js';
+import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 
 /**
  * Object containing all handlers for the social module.
@@ -129,7 +130,7 @@ export const socialHandlers = {
     try {
       // Find posts matching the filters with author info and pagination
       const result = await socialService.findMany(user.id, filters);
-      
+
       // Format response with pagination
       return c.json({
         success: true,
@@ -175,12 +176,12 @@ export const socialHandlers = {
     try {
       // Find post by ID
       const post = await socialService.findById(id, user.id);
-      
+
       // If post doesn't exist, return 404 error
       if (!post) {
         return sendNotFound(c, 'Post');
       }
-      
+
       // Return found post
       return sendSuccess(c, post);
     } catch (error: any) {
@@ -213,15 +214,15 @@ export const socialHandlers = {
     try {
       // Update post, verifying ownership
       const post = await socialService.updatePost(id, user.id, data);
-      
+
       // If post doesn't exist, return 404 error
       if (!post) {
         return sendNotFound(c, 'Post');
       }
-      
+
       // Log update
       logger.info({ userId: user.id, postId: id }, 'Post updated');
-      
+
       // Return updated post
       return sendUpdated(c, post);
     } catch (error: any) {
@@ -252,15 +253,15 @@ export const socialHandlers = {
     try {
       // Delete post, verifying ownership
       const deleted = await socialService.deletePost(id, user.id);
-      
+
       // If post doesn't exist, return 404 error
       if (!deleted) {
         return sendNotFound(c, 'Post');
       }
-      
+
       // Log deletion
       logger.info({ userId: user.id, postId: id }, 'Post deleted');
-      
+
       // Return deletion confirmation
       return sendDeleted(c);
     } catch (error: any) {
@@ -292,7 +293,7 @@ export const socialHandlers = {
     try {
       // Like the post
       await socialService.likePost(id, user.id);
-      
+
       // Return success confirmation
       return sendSuccess(c, { liked: true });
     } catch (error: any) {
@@ -410,9 +411,9 @@ export const socialHandlers = {
       return sendSuccess(c, { followed: true });
     } catch (error: any) {
       if (error.message === 'Cannot follow yourself') {
-        return c.json({ 
-          success: false, 
-          error: { code: 'CANNOT_FOLLOW_SELF', message: 'Cannot follow yourself' } 
+        return c.json({
+          success: false,
+          error: { code: 'CANNOT_FOLLOW_SELF', message: 'Cannot follow yourself' }
         }, 400);
       }
       if (error.message === 'User not found') {
@@ -486,6 +487,148 @@ export const socialHandlers = {
       }, 200);
     } catch (error: any) {
       logger.error({ error, userId: user.id }, 'Failed to get user reposts');
+      throw error;
+    }
+  },
+
+  /**
+   * Get follow stats for a user
+   */
+  async getFollowStats(c: Context) {
+    const user = getUserFromCtx(c);
+    const userId = c.req.param('userId');
+
+    if (!userId) {
+      return sendNotFound(c, 'User ID');
+    }
+
+    try {
+      const stats = await socialService.getFollowStats(userId, user.id);
+      return sendSuccess(c, stats);
+    } catch (error: any) {
+      logger.error({ error, userId: user.id, targetUserId: userId }, 'Failed to get follow stats');
+      throw error;
+    }
+  },
+
+  /**
+   * Get post count for a user
+   */
+  async getPostCount(c: Context) {
+    const user = getUserFromCtx(c);
+    const userId = c.req.param('userId');
+
+    if (!userId) {
+      return sendNotFound(c, 'User ID');
+    }
+
+    try {
+      const count = await socialService.getUserPostCount(userId);
+      return sendSuccess(c, { count });
+    } catch (error: any) {
+      logger.error({ error, userId: user.id, targetUserId: userId }, 'Failed to get post count');
+      throw error;
+    }
+  },
+
+  /**
+   * Get chat history for a user
+   */
+  async getChatHistory(c: Context) {
+    const user = getUserFromCtx(c);
+    const userSupabase = c.get('supabase');
+    // Support getting messages for a specific conversation
+    const conversationId = c.req.query('conversationId');
+
+    try {
+      let messages;
+      if (conversationId) {
+        messages = await socialService.getChatMessages(user.id, conversationId, userSupabase);
+      } else {
+        messages = await socialService.getChatHistory(user.id, userSupabase);
+      }
+      return sendSuccess(c, { messages });
+    } catch (error: any) {
+      logger.error({ error, userId: user.id }, 'Failed to get chat history');
+      throw error;
+    }
+  },
+
+  /**
+   * Get user conversations list
+   */
+  async listConversations(c: Context) {
+    const user = getUserFromCtx(c);
+    const userSupabase = c.get('supabase');
+
+    try {
+      const conversations = await socialService.getUserConversations(user.id, userSupabase);
+      return sendSuccess(c, { conversations });
+    } catch (error: any) {
+      logger.error({ error, userId: user.id }, 'Failed to list conversations');
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new conversation
+   */
+  async createConversation(c: Context) {
+    const user = getUserFromCtx(c);
+    const userSupabase = c.get('supabase');
+    const body = await c.req.json();
+    const title = body.title;
+
+    try {
+      const conversation = await socialService.createConversation(user.id, title, userSupabase);
+      return sendCreated(c, conversation);
+    } catch (error: any) {
+      logger.error({ error, userId: user.id }, 'Failed to create conversation');
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a conversation
+   */
+  async deleteConversation(c: Context) {
+    const user = getUserFromCtx(c);
+    const userSupabase = c.get('supabase');
+    const conversationId = c.req.param('id');
+
+    if (!conversationId) {
+      return sendNotFound(c, 'Conversation ID');
+    }
+
+    try {
+      await socialService.deleteConversation(user.id, conversationId, userSupabase);
+      return sendDeleted(c);
+    } catch (error: any) {
+      logger.error({ error, userId: user.id }, 'Failed to delete conversation');
+      throw error;
+    }
+  },
+
+  /**
+   * Sends a message to the Reception Agent
+   */
+  async chatWithAgent(c: Context) {
+    const user = getUserFromCtx(c);
+    const userSupabase = c.get('supabase');
+    const body = await c.req.json();
+    const text = body.text;
+    const conversationId = body.conversationId; // Optional
+    const agentType = body.agentType; // Optional, defaults to 'reception'
+
+    if (!text) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Text is required');
+    }
+
+    try {
+      const response = await socialService.sendMessageToAgent(user.id, text, conversationId, agentType, userSupabase);
+      return sendSuccess(c, { response });
+    } catch (error: any) {
+      logger.error({ error, userId: user.id }, 'Failed to chat with agent');
       throw error;
     }
   },
