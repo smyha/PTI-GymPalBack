@@ -317,10 +317,14 @@ export const workoutService = {
     const { data: sourceWorkouts, error: fetchError } = await supabaseAdmin
       .rpc('get_workout_by_id', { p_id: sourceWorkoutId }) as any;
     
-    const sourceWorkout = sourceWorkouts?.[0];
+    if (fetchError) {
+         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to fetch source workout: ${fetchError.message}`);
+    }
 
-    if (fetchError || !sourceWorkout) {
-      throw new AppError(ErrorCode.NOT_FOUND, `Source workout not found: ${fetchError?.message || 'Unknown error'}`);
+    const sourceWorkout = Array.isArray(sourceWorkouts) ? sourceWorkouts[0] : sourceWorkouts;
+
+    if (!sourceWorkout) {
+      throw new AppError(ErrorCode.NOT_FOUND, `Source workout not found. It might have been deleted or you don't have permission to view it.`);
     }
 
     // Create a copy with the current user as owner
