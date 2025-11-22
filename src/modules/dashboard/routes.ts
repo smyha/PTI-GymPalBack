@@ -86,7 +86,7 @@ dashboardRoutes.get(DASHBOARD_ROUTES.OVERVIEW, dashboardHandlers.getOverview);
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - name: timeframe
+ *       - name: period
  *         in: query
  *         schema:
  *           type: string
@@ -125,7 +125,7 @@ dashboardRoutes.get(DASHBOARD_ROUTES.OVERVIEW, dashboardHandlers.getOverview);
  * 4. Returns comprehensive statistics
  * 
  * Query parameters:
- * - timeframe: Time period (week, month, year, all) - default: month
+ * - period: Time period (week, month, year, all) - default: month
  * - include_social: Include social activity metrics - default: true
  * 
  * Statistics include:
