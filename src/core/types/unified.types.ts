@@ -249,6 +249,13 @@ export interface Post {
   updated_at: string;
   author?: PostAuthor; // Nested when needed
   is_liked?: boolean;  // User-specific field
+  workout?: {
+    id: string;
+    name: string;
+    description?: string;
+    difficulty?: string;
+    duration_minutes?: number;
+  };
 }
 
 export interface CreatePostRequest {

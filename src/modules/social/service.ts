@@ -76,12 +76,13 @@ export const socialService = {
     const user_id = (filters as any).user_id as string | undefined;
     const offset = (page - 1) * limit;
 
-    // Build base query with author profile join
+    // Build base query with author profile join and workout details
     let query = supabase
       .from('posts')
       .select(`
         *,
-        profiles!posts_user_id_fkey(id, username, full_name, avatar_url)
+        profiles!posts_user_id_fkey(id, username, full_name, avatar_url),
+        workouts(id, name, description, difficulty, duration_minutes)
       `)
       .eq('is_public', true)
       .order('created_at', { ascending: false });
@@ -136,6 +137,7 @@ export const socialService = {
         image_urls: post.image_urls || [],
         hashtags: post.hashtags || [],
         workout_id: post.workout_id,
+        workout: post.workouts, // Mapped from join
         is_public: post.is_public ?? true,
         createdAt: post.created_at,
         updatedAt: post.updated_at,
@@ -172,7 +174,8 @@ export const socialService = {
       .from('posts')
       .select(`
         *,
-        profiles!posts_user_id_fkey(id, username, full_name, avatar_url)
+        profiles!posts_user_id_fkey(id, username, full_name, avatar_url),
+        workouts(id, name, description, difficulty, duration_minutes)
       `)
       .eq('id', id)
       .or(`user_id.eq.${userId},is_public.eq.true`)
@@ -215,6 +218,7 @@ export const socialService = {
       image_urls: postData.image_urls || [],
       hashtags: postData.hashtags || [],
       workout_id: postData.workout_id,
+      workout: postData.workouts, // Mapped from join
       is_public: postData.is_public ?? true,
       createdAt: postData.created_at,
       updatedAt: postData.updated_at,

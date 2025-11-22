@@ -135,7 +135,7 @@ export const aiService = {
 
         // If still no conversation, create one
         if (!targetConversationId) {
-           const { data: newConv, error: convError } = await supabaseAdmin
+           const { data: newConv, error: convError } = await db
              .from('ai_conversations')
              .insert({
                user_id: userId,
@@ -145,7 +145,7 @@ export const aiService = {
              .single();
            
            if (convError) {
-             console.error('Error creating conversation:', convError);
+             logger.error({ error: convError }, 'Error creating conversation');
            } else {
              targetConversationId = newConv?.id;
            }
@@ -153,14 +153,14 @@ export const aiService = {
 
         if (targetConversationId) {
           // 2. Save User Message
-          await supabaseAdmin.from('ai_messages').insert({
+          await db.from('ai_messages').insert({
             conversation_id: targetConversationId,
             role: 'user',
             content: text
           } as any);
 
           // 3. Save Assistant Message
-          await supabaseAdmin.from('ai_messages').insert({
+          await db.from('ai_messages').insert({
             conversation_id: targetConversationId,
             role: 'assistant',
             content: responseText
