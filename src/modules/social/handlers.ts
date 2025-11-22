@@ -48,6 +48,7 @@ export const socialHandlers = {
   async createPost(c: Context) {
     // Extract authenticated user
     const user = getUserFromCtx(c);
+    const supabase = c.get('supabase'); // Get authenticated client
     let postData: CreatePostData;
 
     try {
@@ -92,7 +93,7 @@ export const socialHandlers = {
       }
 
       // Create post in service
-      const post = await socialService.createPost(user.id, postData);
+      const post = await socialService.createPost(user.id, postData, supabase);
 
       // Log post creation for analytics
       logger.info({ userId: user.id, postId: post.id, imageCount: (postData.images || []).length }, 'Post created');

@@ -41,7 +41,7 @@ export const socialService = {
   /**
    * Creates a new post
    */
-  async createPost(userId: string, data: CreatePostData): Promise<Unified.Post> {
+  async createPost(userId: string, data: CreatePostData, dbClient?: SupabaseClient<Database>): Promise<Unified.Post> {
     const postData: any = {
       user_id: userId,
       content: data.content,
@@ -54,7 +54,11 @@ export const socialService = {
       is_public: data.is_public ?? true,
     };
 
-    const { data: post, error } = await insertRow('posts', postData);
+    // Use provided client (authenticated) or admin client as fallback
+    // Using the authenticated client ensures RLS policies are respected and applied correctly
+    const client = dbClient || supabaseAdmin;
+    
+    const { data: post, error } = await insertRow('posts', postData, client);
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create post: ${error.message}`);
