@@ -259,34 +259,16 @@ export const authService = {
   /**
    * Deletes user account
    *
-   * NOTE: This endpoint no longer requires SUPABASE_SERVICE_ROLE_KEY to work.
-   * The account deletion is handled by a database function (delete_own_account)
-   * that executes with elevated privileges, ensuring security and proper cleanup.
+   * Uses admin privileges to delete the user from auth.users.
+   * This triggers cascading deletes in the database for all user data.
    */
   async deleteAccount(userId: string): Promise<void> {
-    // Verify the user is deleting their own account (should be enforced by handler, but double-check)
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user?.id !== userId) {
-      throw new AppError(ErrorCode.OWNERSHIP_REQUIRED, 'You can only delete your own account');
-    }
-
-    try {
-      // Attempt to call the database function for self-deletion
-      const { error: rpcError } = await supabase.rpc('delete_own_account');
-
-      if (rpcError) {
-        // Fallback to admin delete if the RPC fails (e.g., function not deployed yet)
-        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-        if (authError) {
-          throw new AppError(ErrorCode.INTERNAL_ERROR, `Failed to delete account via admin: ${authError.message}`);
-        }
-      }
-    } catch (error: any) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to delete account');
+    // Use admin client to delete user directly
+    // Handler already verified that the requester matches userId
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    
+    if (authError) {
+      throw new AppError(ErrorCode.INTERNAL_ERROR, `Failed to delete account: ${authError.message}`);
     }
   },
 };

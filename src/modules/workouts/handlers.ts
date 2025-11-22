@@ -202,10 +202,11 @@ export const workoutHandlers = {
     // Extract authenticated user and workout ID
     const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
+    const supabase = c.get('supabase');
 
     try {
       // Delete workout, verifying ownership
-      const deleted = await workoutService.delete(id, user.id);
+      const deleted = await workoutService.delete(id, user.id, supabase);
 
       // If it doesn't exist, return 404 error
       if (!deleted) {

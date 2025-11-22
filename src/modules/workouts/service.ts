@@ -302,8 +302,9 @@ export const workoutService = {
   /**
    * Deletes a workout
    */
-  async delete(id: string, userId: string): Promise<boolean> {
-    const { error } = await supabase.from('workouts').delete().eq('id', id).eq('user_id', userId);
+  async delete(id: string, userId: string, dbClient?: SupabaseClient): Promise<boolean> {
+    const client = dbClient || supabaseAdmin;
+    const { error } = await client.from('workouts').delete().eq('id', id).eq('user_id', userId);
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to delete workout: ${error.message}`);

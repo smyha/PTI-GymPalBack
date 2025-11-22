@@ -2,7 +2,8 @@
  * Calendar Service
  * Handles scheduling and retrieval of user scheduled workouts
  */
-import { supabase } from '../../core/config/database.js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '../../core/config/database.js';
 import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 
 function toISODate(date: Date) {
@@ -10,10 +11,17 @@ function toISODate(date: Date) {
 }
 
 export const calendarService = {
-  async addWorkout(userId: string, workoutId: string, dateStr: string) {
-    // Validate workout exists
-    const { data: workout, error: wErr } = await supabase.from('workouts').select('id,user_id,name').eq('id', workoutId).single();
+  async addWorkout(userId: string, workoutId: string, dateStr: string, dbClient?: SupabaseClient) {
+    // Use provided client or admin client to ensure visibility
+    // Ideally use authenticated client to check user's access, but admin allows cross-checks if needed
+    const client = dbClient || supabaseAdmin;
+
+    // Validate workout exists (bypass RLS if using admin, or respect it if using auth client)
+    const { data: workout, error: wErr } = await client.from('workouts').select('id,user_id,name').eq('id', workoutId).single();
+    
     if (wErr || !workout) {
+      // Try finding it with admin if it failed with normal client (e.g. public workout logic might differ)
+      // But generally, if we use the proper client, it should work.
       throw new AppError(ErrorCode.NOT_FOUND, 'Workout not found');
     }
 
@@ -24,7 +32,7 @@ export const calendarService = {
       scheduled_date: dateStr,
     } as any;
 
-    const { data, error } = await supabase.from('scheduled_workouts').insert(payload).select('*').single();
+    const { data, error } = await client.from('scheduled_workouts').insert(payload).select('*').single();
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to schedule workout: ${error.message}`);
@@ -33,7 +41,9 @@ export const calendarService = {
     return data;
   },
 
-  async getCalendar(userId: string, month?: string, year?: string) {
+  async getCalendar(userId: string, month?: string, year?: string, dbClient?: SupabaseClient) {
+    const client = dbClient || supabase;
+    
     // If month & year provided, compute start/end of month
     if (month && year) {
       const m = parseInt(month, 10);
@@ -47,7 +57,7 @@ export const calendarService = {
       const startIso = toISODate(start);
       const endIso = toISODate(end);
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('scheduled_workouts')
         .select('*, workouts(*)')
         .eq('user_id', userId)
@@ -64,7 +74,7 @@ export const calendarService = {
     const future = new Date();
     future.setDate(today.getDate() + 365);
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('scheduled_workouts')
       .select('*, workouts(*)')
       .eq('user_id', userId)
@@ -76,12 +86,14 @@ export const calendarService = {
     return data || [];
   },
 
-  async updateScheduled(id: string, userId: string, updates: { scheduled_date?: string; status?: string }) {
+  async updateScheduled(id: string, userId: string, updates: { scheduled_date?: string; status?: string }, dbClient?: SupabaseClient) {
+    const client = dbClient || supabase;
     const payload: any = {};
     if (updates.scheduled_date) payload.scheduled_date = updates.scheduled_date;
     if (updates.status) payload.status = updates.status;
 
-    const { data, error } = await (supabase.from('scheduled_workouts') as any)
+    const { data, error } = await client
+      .from('scheduled_workouts')
       .update(payload)
       .eq('id', id)
       .eq('user_id', userId)
@@ -93,8 +105,9 @@ export const calendarService = {
     return data;
   },
 
-  async deleteScheduled(id: string, userId: string) {
-    const { error } = await supabase.from('scheduled_workouts').delete().eq('id', id).eq('user_id', userId);
+  async deleteScheduled(id: string, userId: string, dbClient?: SupabaseClient) {
+    const client = dbClient || supabase;
+    const { error } = await client.from('scheduled_workouts').delete().eq('id', id).eq('user_id', userId);
     if (error) throw new AppError(ErrorCode.DATABASE_ERROR, error.message);
     return true;
   },

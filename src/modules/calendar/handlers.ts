@@ -9,9 +9,10 @@ export const calendarHandlers = {
   async addWorkout(c: Context) {
     const user = getUserFromCtx(c);
     const data = c.get('validated') as AddWorkoutRequest;
+    const supabase = c.get('supabase');
 
     try {
-      const scheduled: any = await calendarService.addWorkout(user.id, data.workout_id, data.date);
+      const scheduled: any = await calendarService.addWorkout(user.id, data.workout_id, data.date, supabase);
       logger.info({ userId: user.id, workoutId: data.workout_id, date: data.date }, 'Workout scheduled');
       // Return a consistent AddWorkoutResponse shape
       const payload = {
@@ -29,9 +30,10 @@ export const calendarHandlers = {
   async getCalendar(c: Context) {
     const user = getUserFromCtx(c);
     const { month, year } = c.get('validated') as { month?: string; year?: string };
+    const supabase = c.get('supabase');
 
     try {
-      const data = await calendarService.getCalendar(user.id, month, year);
+      const data = await calendarService.getCalendar(user.id, month, year, supabase);
 
       // Map scheduled_workouts rows into CalendarResponse.days
       const days = (data || []).map((row: any) => ({
@@ -62,9 +64,10 @@ export const calendarHandlers = {
     const user = getUserFromCtx(c);
     const id = c.req.param('id');
     const data = c.get('validated') as UpdateScheduledRequest;
+    const supabase = c.get('supabase');
 
     try {
-      const updated = await calendarService.updateScheduled(id, user.id, data as any);
+      const updated = await calendarService.updateScheduled(id, user.id, data as any, supabase);
       return sendSuccess(c, updated);
     } catch (err: any) {
       logger.error({ err, userId: user.id, id }, 'Failed to update scheduled item');
@@ -76,9 +79,10 @@ export const calendarHandlers = {
   async deleteScheduled(c: Context) {
     const user = getUserFromCtx(c);
     const id = c.req.param('id');
+    const supabase = c.get('supabase');
 
     try {
-      await calendarService.deleteScheduled(id, user.id);
+      await calendarService.deleteScheduled(id, user.id, supabase);
       return sendSuccess(c, { deleted: true });
     } catch (err: any) {
       logger.error({ err, userId: user.id, id }, 'Failed to delete scheduled item');
