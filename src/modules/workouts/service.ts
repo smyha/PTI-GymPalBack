@@ -377,7 +377,8 @@ export const workoutService = {
    * Get workout count for a user
    */
   async getUserWorkoutCount(userId: string): Promise<number> {
-    const { count, error } = await supabase
+    // Use admin client to get accurate count regardless of visibility/RLS
+    const { count, error } = await supabaseAdmin
       .from('workouts')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
