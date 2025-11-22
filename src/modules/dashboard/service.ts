@@ -3,19 +3,23 @@
  * Business logic layer for dashboard analytics and statistics
  */
 
+import { SupabaseClient } from '@supabase/supabase-js';
 import { selectRows } from '../../core/config/database-helpers.js';
 import { supabase } from '../../core/config/database.js';
 import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 import type * as Unified from '../../core/types/unified.types.js';
 import type { RecentActivity } from './types.js';
+import type { Database } from '../../core/types/index.js';
 
 export const dashboardService = {
   /**
    * Gets dashboard overview for a user
    */
-  async getOverview(userId: string): Promise<any> {
+  async getOverview(userId: string, dbClient?: SupabaseClient<Database>): Promise<any> {
+    const client = dbClient || supabase;
+
     // Get workout count (total workouts created)
-    const { count: workoutCount } = await supabase
+    const { count: workoutCount } = await client
       .from('workouts')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
@@ -23,11 +27,16 @@ export const dashboardService = {
     // Calculate start of current week (Monday)
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Monday
+    const day = now.getDay() || 7; // Make Sunday (0) the last day
+    if (day !== 1) {
+        startOfWeek.setHours(-24 * (day - 1));
+    } else {
+        startOfWeek.setHours(0, 0, 0, 0);
+    }
     startOfWeek.setHours(0, 0, 0, 0);
 
     // Get completed scheduled workouts this week
-    const { data: completedThisWeek } = await supabase
+    const { data: completedThisWeek } = await client
       .from('scheduled_workouts')
       .select('workout_id')
       .eq('user_id', userId)
@@ -39,7 +48,7 @@ export const dashboardService = {
     // Count total exercises from completed routines this week
     let totalExercisesFromCompleted = 0;
     if (completedWorkoutIds.length > 0) {
-      const { count: exerciseCount } = await supabase
+      const { count: exerciseCount } = await client
         .from('workout_exercises')
         .select('*', { count: 'exact', head: true })
         .in('workout_id', completedWorkoutIds);
@@ -47,7 +56,7 @@ export const dashboardService = {
     }
 
     // Calculate Streak
-    const { data: allCompletedDates } = await supabase
+    const { data: allCompletedDates } = await client
       .from('scheduled_workouts')
       .select('scheduled_date')
       .eq('user_id', userId)
@@ -84,7 +93,7 @@ export const dashboardService = {
 
     // Get Today's Workout
     const todayStr = new Date().toISOString().split('T')[0];
-    const { data: todayScheduled } = await supabase
+    const { data: todayScheduled } = await client
       .from('scheduled_workouts')
       .select(`
         *,
@@ -95,7 +104,7 @@ export const dashboardService = {
       .maybeSingle();
 
     // Get recent workouts
-    const { data: recentWorkouts } = await supabase
+    const { data: recentWorkouts } = await client
       .from('workouts')
       .select('*')
       .eq('user_id', userId)
@@ -117,7 +126,8 @@ export const dashboardService = {
   /**
    * Gets statistics for a specific period
    */
-  async getStats(userId: string, period: string): Promise<Unified.DashboardStats> {
+  async getStats(userId: string, period: string, dbClient?: SupabaseClient<Database>): Promise<Unified.DashboardStats> {
+    const client = dbClient || supabase;
     let startDate: Date;
     const now = new Date();
 
@@ -125,7 +135,12 @@ export const dashboardService = {
       case 'week':
         // Start of current week (Monday)
         startDate = new Date(now);
-        startDate.setDate(now.getDate() - now.getDay() + 1);
+        const day = now.getDay() || 7;
+        if (day !== 1) {
+            startDate.setHours(-24 * (day - 1));
+        } else {
+            startDate.setHours(0, 0, 0, 0);
+        }
         startDate.setHours(0, 0, 0, 0);
         break;
       case 'month':
@@ -136,12 +151,17 @@ export const dashboardService = {
         startDate = new Date(now.getFullYear(), 0, 1);
         startDate.setHours(0, 0, 0, 0);
         break;
+      case 'all':
+        startDate = new Date(0); // All time
+        break;
       default:
+        // Default to last 30 days if unknown period, or maybe just all time?
+        // Let's default to month for safety if not specified
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
     // Get completed scheduled workouts in period
-    const { data: completedScheduled } = await supabase
+    const { data: completedScheduled } = await client
       .from('scheduled_workouts')
       .select('workout_id, scheduled_date')
       .eq('user_id', userId)
@@ -157,7 +177,7 @@ export const dashboardService = {
     
     if (completedWorkoutIds.length > 0) {
       // Get workout details
-      const { data: workouts } = await supabase
+      const { data: workouts } = await client
         .from('workouts')
         .select('id, duration_minutes')
         .in('id', completedWorkoutIds);
@@ -167,7 +187,7 @@ export const dashboardService = {
       totalDuration = workoutsWithDuration.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
 
       // Count total exercises from completed workouts
-      const { count: exerciseCount } = await supabase
+      const { count: exerciseCount } = await client
         .from('workout_exercises')
         .select('*', { count: 'exact', head: true })
         .in('workout_id', completedWorkoutIds);
@@ -188,11 +208,12 @@ export const dashboardService = {
   /**
    * Gets recent activity
    */
-  async getRecentActivity(userId: string, limit: number = 10): Promise<RecentActivity[]> {
+  async getRecentActivity(userId: string, limit: number = 10, dbClient?: SupabaseClient<Database>): Promise<RecentActivity[]> {
+    const client = dbClient || supabase;
     const activities: RecentActivity[] = [];
 
     // Get recent workouts
-    const { data: workouts } = await supabase
+    const { data: workouts } = await client
       .from('workouts')
       .select('id, name, created_at')
       .eq('user_id', userId)
@@ -208,7 +229,7 @@ export const dashboardService = {
     });
 
     // Get recent posts
-    const { data: posts } = await supabase
+    const { data: posts } = await client
       .from('posts')
       .select('id, content, created_at')
       .eq('user_id', userId)

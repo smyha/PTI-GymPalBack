@@ -36,10 +36,11 @@ export const dashboardHandlers = {
   async getOverview(c: Context) {
     // Get authenticated user
     const user = getUserFromCtx(c);
+    const supabase = c.get('supabase'); // Get authenticated client
     
     try {
       // Get dashboard overview from service
-      const overview = await dashboardService.getOverview(user.id);
+      const overview = await dashboardService.getOverview(user.id, supabase);
       
       // Log success with key metrics present
       logger.info({ userId: user.id }, 'Dashboard overview retrieved');
@@ -71,10 +72,11 @@ export const dashboardHandlers = {
     // Get authenticated user and time period
     const user = getUserFromCtx(c);
     const { period } = c.get('validated') as { period: string };
+    const supabase = c.get('supabase'); // Get authenticated client
     
     try {
       // Get statistics for the specified period
-      const stats = await dashboardService.getStats(user.id, period);
+      const stats = await dashboardService.getStats(user.id, period, supabase);
       
       // Log success with requested period
       logger.info({ userId: user.id, period }, 'Dashboard stats retrieved');
@@ -106,10 +108,11 @@ export const dashboardHandlers = {
     // Get authenticated user and activity limit
     const user = getUserFromCtx(c);
     const { limit } = c.get('validated') as { limit: number };
+    const supabase = c.get('supabase'); // Get authenticated client
     
     try {
       // Get recent activity from service
-      const activity = await dashboardService.getRecentActivity(user.id, limit);
+      const activity = await dashboardService.getRecentActivity(user.id, limit, supabase);
       
       // Log success with item count
       logger.info({ userId: user.id, count: Array.isArray(activity) ? activity.length : 0 }, 'Recent activity retrieved');
