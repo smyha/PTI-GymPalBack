@@ -132,10 +132,11 @@ export const exerciseHandlers = {
     // Extract user and exercise ID
     const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
+    const supabase = c.get('supabase');
 
     try {
       // Find exercise, verifying access permissions
-      const exercise = await exerciseService.findById(id, user.id);
+      const exercise = await exerciseService.findById(id, user.id, supabase);
       
       // If it doesn't exist, return 404 error
       if (!exercise) {

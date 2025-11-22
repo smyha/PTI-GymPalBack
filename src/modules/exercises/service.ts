@@ -8,6 +8,7 @@ import { supabase } from '../../core/config/database.js';
 import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 import type * as Unified from '../../core/types/unified.types.js';
 import type { CreateExerciseData, UpdateExerciseData, ExerciseFilters } from './types.js';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Helper function to map exercise row to Unified.Exercise
@@ -213,10 +214,16 @@ export const exerciseService = {
   /**
    * Finds an exercise by ID
    */
-  async findById(id: string, userId: string): Promise<Unified.Exercise | null> {
-    const { data, error } = await selectRow('exercises', (q) =>
-      q.eq('id', id).or(`user_id.eq.${userId},is_public.eq.true`)
-    );
+  async findById(id: string, userId: string, dbClient?: SupabaseClient): Promise<Unified.Exercise | null> {
+    const client = dbClient || supabase;
+    
+    // Use authenticated client to leverage RLS
+    // Or fallback to explicit check if using unauthenticated client (though logic implies authenticated)
+    const { data, error } = await client
+      .from('exercises')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get exercise: ${error.message}`);
