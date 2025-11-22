@@ -329,5 +329,12 @@ userRoutes.get('/search', validate(userSchemas.search, 'query'), userHandlers.se
  */
 userRoutes.get('/stats', userHandlers.getStats);
 
+/**
+ * Handler: Upload user avatar
+ * 
+ * Endpoint: POST /api/v1/users/avatar
+ */
+userRoutes.post('/avatar', userHandlers.uploadAvatar);
+
 export default userRoutes;
 

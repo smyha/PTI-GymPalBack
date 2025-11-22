@@ -14,17 +14,37 @@ export const dashboardService = {
    * Gets dashboard overview for a user
    */
   async getOverview(userId: string): Promise<any> {
-    // Get workout count
+    // Get workout count (total workouts created)
     const { count: workoutCount } = await supabase
       .from('workouts')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
 
-    // Get exercise count
-    const { count: exerciseCount } = await supabase
-      .from('exercises')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
+    // Calculate start of current week (Monday)
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Monday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Get completed scheduled workouts this week
+    const { data: completedThisWeek } = await supabase
+      .from('scheduled_workouts')
+      .select('workout_id')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .gte('scheduled_date', startOfWeek.toISOString().split('T')[0]);
+
+    const completedWorkoutIds = (completedThisWeek || []).map((sw: any) => sw.workout_id);
+
+    // Count total exercises from completed routines this week
+    let totalExercisesFromCompleted = 0;
+    if (completedWorkoutIds.length > 0) {
+      const { count: exerciseCount } = await supabase
+        .from('workout_exercises')
+        .select('*', { count: 'exact', head: true })
+        .in('workout_id', completedWorkoutIds);
+      totalExercisesFromCompleted = exerciseCount || 0;
+    }
 
     // Get recent workouts
     const { data: recentWorkouts } = await supabase
@@ -37,7 +57,8 @@ export const dashboardService = {
     return {
       stats: {
         total_workouts: workoutCount || 0,
-        total_exercises: exerciseCount || 0,
+        total_exercises: totalExercisesFromCompleted, // Exercises from completed routines
+        completed_routines_this_week: completedThisWeek?.length || 0,
       },
       recent_workouts: recentWorkouts || [],
     };
@@ -52,40 +73,63 @@ export const dashboardService = {
 
     switch (period) {
       case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        // Start of current week (Monday)
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - now.getDay() + 1);
+        startDate.setHours(0, 0, 0, 0);
         break;
       case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
         break;
       case 'year':
-        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        startDate = new Date(now.getFullYear(), 0, 1);
+        startDate.setHours(0, 0, 0, 0);
         break;
       default:
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    // Get workouts in period
-    const { data: workouts } = await supabase
-      .from('workouts')
-      .select('*')
+    // Get completed scheduled workouts in period
+    const { data: completedScheduled } = await supabase
+      .from('scheduled_workouts')
+      .select('workout_id, scheduled_date')
       .eq('user_id', userId)
-      .gte('created_at', startDate.toISOString());
+      .eq('status', 'completed')
+      .gte('scheduled_date', startDate.toISOString().split('T')[0]);
 
-    const totalWorkouts = workouts?.length || 0;
-    // Ensure proper typing for duration aggregation
-    const workoutsWithDuration = (workouts || []) as Array<{ duration_minutes?: number }>;
-    const totalDuration = workoutsWithDuration.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
+    const completedWorkoutIds = (completedScheduled || []).map((sw: any) => sw.workout_id);
+    const totalWorkouts = completedScheduled?.length || 0;
+
+    // Get workout details for duration calculation
+    let totalDuration = 0;
+    let totalExercises = 0;
+    
+    if (completedWorkoutIds.length > 0) {
+      // Get workout details
+      const { data: workouts } = await supabase
+        .from('workouts')
+        .select('id, duration_minutes')
+        .in('id', completedWorkoutIds);
+
+      // Calculate total duration
+      const workoutsWithDuration = (workouts || []) as Array<{ duration_minutes?: number }>;
+      totalDuration = workoutsWithDuration.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
+
+      // Count total exercises from completed workouts
+      const { count: exerciseCount } = await supabase
+        .from('workout_exercises')
+        .select('*', { count: 'exact', head: true })
+        .in('workout_id', completedWorkoutIds);
+      
+      totalExercises = exerciseCount || 0;
+    }
+
     const averageDuration = totalWorkouts > 0 ? totalDuration / totalWorkouts : 0;
-
-    // Get exercises count
-    const { count: totalExercises } = await supabase
-      .from('exercises')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
 
     return {
       total_workouts: totalWorkouts,
-      total_exercises: totalExercises || 0,
+      total_exercises: totalExercises,
       total_duration: totalDuration,
       average_duration: Math.round(averageDuration),
     };

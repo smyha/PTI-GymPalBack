@@ -211,4 +211,47 @@ export const userHandlers = {
       throw error;
     }
   },
+
+  /**
+   * Uploads a user avatar
+   */
+  async uploadAvatar(c: Context) {
+    const user = getUserFromCtx(c);
+
+    try {
+      // Get the uploaded file from form data
+      const formData = await c.req.formData();
+      const file = formData.get('avatar') as File;
+
+      if (!file || file.size === 0) {
+        return c.json({
+          success: false,
+          error: { code: 'MISSING_FILE', message: 'Avatar file is required' }
+        }, 400);
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        return c.json({
+          success: false,
+          error: { code: 'INVALID_FILE_TYPE', message: 'File must be an image' }
+        }, 400);
+      }
+
+      // Convert file to base64
+      const buffer = await file.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString('base64');
+      const dataUrl = `data:${file.type};base64,${base64}`;
+
+      // Update profile with avatar
+      const profile = await userService.updateProfile(user.id, { avatar_url: dataUrl });
+
+      logger.info({ userId: user.id, fileType: file.type }, 'Avatar uploaded');
+
+      return sendSuccess(c, profile);
+    } catch (error: any) {
+      logger.error({ error: error?.message || String(error), stack: error?.stack, userId: user.id }, 'Failed to upload avatar');
+      throw error;
+    }
+  },
 };
