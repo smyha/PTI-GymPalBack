@@ -41,6 +41,7 @@ export const calendarHandlers = {
         status: row.status || 'scheduled',
         workoutId: row.workout_id || row.workouts?.id,
         workoutName: row.workouts?.name || null,
+        workout: row.workouts, // Include full workout details
         exerciseCount: Array.isArray(row.workouts?.exercises) ? row.workouts.exercises.length : undefined,
       }));
 

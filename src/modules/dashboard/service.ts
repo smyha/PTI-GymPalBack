@@ -46,6 +46,54 @@ export const dashboardService = {
       totalExercisesFromCompleted = exerciseCount || 0;
     }
 
+    // Calculate Streak
+    const { data: allCompletedDates } = await supabase
+      .from('scheduled_workouts')
+      .select('scheduled_date')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .order('scheduled_date', { ascending: false });
+
+    let streak = 0;
+    if (allCompletedDates && allCompletedDates.length > 0) {
+      const distinctDates = [...new Set(allCompletedDates.map((d: any) => d.scheduled_date))];
+      const today = new Date().toISOString().split('T')[0];
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterday = yesterdayDate.toISOString().split('T')[0];
+
+      const firstDate = distinctDates[0];
+      if (firstDate === today || firstDate === yesterday) {
+        streak = 1;
+        let previousDate = new Date(firstDate);
+        for (let i = 1; i < distinctDates.length; i++) {
+          const currentDateStr = distinctDates[i];
+          const expectedDate = new Date(previousDate);
+          expectedDate.setDate(expectedDate.getDate() - 1);
+          const expectedDateStr = expectedDate.toISOString().split('T')[0];
+
+          if (currentDateStr === expectedDateStr) {
+            streak++;
+            previousDate = expectedDate;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    // Get Today's Workout
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: todayScheduled } = await supabase
+      .from('scheduled_workouts')
+      .select(`
+        *,
+        workout:workouts(*)
+      `)
+      .eq('user_id', userId)
+      .eq('scheduled_date', todayStr)
+      .maybeSingle();
+
     // Get recent workouts
     const { data: recentWorkouts } = await supabase
       .from('workouts')
@@ -59,8 +107,10 @@ export const dashboardService = {
         total_workouts: workoutCount || 0,
         total_exercises: totalExercisesFromCompleted, // Exercises from completed routines
         completed_routines_this_week: completedThisWeek?.length || 0,
+        streak: streak,
       },
       recent_workouts: recentWorkouts || [],
+      today_workout: todayScheduled?.workout || null,
     };
   },
 

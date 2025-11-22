@@ -116,10 +116,11 @@ export const workoutHandlers = {
     // Extract authenticated user and workout ID
     const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
+    const supabase = c.get('supabase');
 
     try {
       // Find workout by ID, verifying it belongs to user
-      const workout = await workoutService.findById(id, user.id);
+      const workout = await workoutService.findById(id, user.id, supabase);
 
       // If it doesn't exist, return 404 error
       if (!workout) {

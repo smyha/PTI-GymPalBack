@@ -210,9 +210,14 @@ export const workoutService = {
   /**
    * Finds a workout by ID
    */
-  async findById(id: string, userId: string): Promise<Unified.Workout | null> {
+  async findById(id: string, userId: string, dbClient?: SupabaseClient): Promise<Unified.Workout | null> {
+    // Use provided client (authenticated) or default supabase client (which might be anon)
+    // Ideally, we should use the authenticated client passed from the handler to respect RLS
+    const client = dbClient || supabase;
+
     // Fetch workout with its related exercises
-    const { data: workout, error: workoutError } = await supabase
+    // We remove .eq('user_id', userId) to allow fetching any workout the user has access to (via RLS)
+    const { data: workout, error: workoutError } = await client
       .from('workouts')
       .select(`
         *,
@@ -222,7 +227,6 @@ export const workoutService = {
         )
       `)
       .eq('id', id)
-      .eq('user_id', userId)
       .single();
 
     if (workoutError) {
