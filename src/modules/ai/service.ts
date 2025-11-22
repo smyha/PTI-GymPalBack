@@ -23,6 +23,9 @@ export const aiService = {
         ? 'https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/routineAgent'
         : 'https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/receptionAgent';
     
+    // Log which agent is being contacted
+    logger.info({ userId, agentType, webhookUrl }, `Communicating with ${agentType} agent`);
+
     try {
       // Fetch user's full name for agent identification
       const { data: profile, error: profileFetchError } = await db
