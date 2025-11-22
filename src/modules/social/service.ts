@@ -621,9 +621,11 @@ export const socialService = {
   /**
    * Repost a post (toggle repost/unrepost)
    */
-  async repostPost(postId: string, userId: string): Promise<{ reposted: boolean }> {
+  async repostPost(postId: string, userId: string, dbClient?: SupabaseClient<Database>): Promise<{ reposted: boolean }> {
+    const client = dbClient || supabase;
+    
     // First check if the repost already exists
-    const { data: existingRepost, error: checkError } = await supabase
+    const { data: existingRepost, error: checkError } = await client
       .from('post_reposts')
       .select('id')
       .eq('original_post_id', postId)
@@ -636,7 +638,7 @@ export const socialService = {
 
     if (existingRepost) {
       // Remove the repost
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await client
         .from('post_reposts')
         .delete()
         .eq('original_post_id', postId)
@@ -649,7 +651,7 @@ export const socialService = {
       // Decrement reposts_count
       try {
         // Get current count
-        const { data: postData, error: fetchError } = await supabase
+        const { data: postData, error: fetchError } = await client
           .from('posts')
           .select('reposts_count')
           .eq('id', postId)
@@ -661,7 +663,7 @@ export const socialService = {
 
         // Calculate and update new count
         const newCount = Math.max(0, ((postData as any).reposts_count as number || 0) - 1);
-        const updateResult = await (supabase as any)
+        const updateResult = await (client as any)
           .from('posts')
           .update({ reposts_count: newCount } as any)
           .eq('id', postId as any);
@@ -677,7 +679,7 @@ export const socialService = {
       return { reposted: false };
     } else {
       // Add the repost
-      const { error: insertError } = await supabase
+      const { error: insertError } = await client
         .from('post_reposts')
         .insert([{
           original_post_id: postId,
@@ -691,7 +693,7 @@ export const socialService = {
       // Increment reposts_count
       try {
         // Get current count
-        const { data: postData, error: fetchError } = await supabase
+        const { data: postData, error: fetchError } = await client
           .from('posts')
           .select('reposts_count')
           .eq('id', postId)
@@ -703,7 +705,7 @@ export const socialService = {
 
         // Calculate and update new count
         const newCount = ((postData as any).reposts_count as number || 0) + 1;
-        const updateResult = await (supabase as any)
+        const updateResult = await (client as any)
           .from('posts')
           .update({ reposts_count: newCount } as any)
           .eq('id', postId as any);

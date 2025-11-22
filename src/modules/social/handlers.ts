@@ -454,9 +454,10 @@ export const socialHandlers = {
   async repostPost(c: Context) {
     const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
+    const supabase = c.get('supabase');
 
     try {
-      const result = await socialService.repostPost(id, user.id);
+      const result = await socialService.repostPost(id, user.id, supabase);
       logger.info({ userId: user.id, postId: id, reposted: result.reposted }, 'Post reposted');
       return sendSuccess(c, result);
     } catch (error: any) {

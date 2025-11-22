@@ -74,7 +74,7 @@ dashboardRoutes.use('*', auth);
  * - 401: User not authenticated
  * - 500: Internal server error
  */
-dashboardRoutes.get(DASHBOARD_ROUTES.OVERVIEW, dashboardHandlers.getOverview);
+dashboardRoutes.get(DASHBOARD_ROUTES.OVERVIEW, validate(dashboardSchemas.overview, 'query'), dashboardHandlers.getOverview);
 
 /**
  * @openapi

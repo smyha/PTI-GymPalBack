@@ -37,13 +37,15 @@ export const dashboardHandlers = {
     // Get authenticated user
     const user = getUserFromCtx(c);
     const supabase = c.get('supabase'); // Get authenticated client
+    const query = c.req.query();
+    const date = query.date;
     
     try {
       // Get dashboard overview from service
-      const overview = await dashboardService.getOverview(user.id, supabase);
+      const overview = await dashboardService.getOverview(user.id, supabase, date);
       
       // Log success with key metrics present
-      logger.info({ userId: user.id }, 'Dashboard overview retrieved');
+      logger.info({ userId: user.id, date }, 'Dashboard overview retrieved');
 
       // Return overview data
       return sendSuccess(c, overview);
@@ -71,15 +73,15 @@ export const dashboardHandlers = {
   async getStats(c: Context) {
     // Get authenticated user and time period
     const user = getUserFromCtx(c);
-    const { period } = c.get('validated') as { period: string };
+    const { period, date } = c.get('validated') as { period: string; date?: string };
     const supabase = c.get('supabase'); // Get authenticated client
     
     try {
       // Get statistics for the specified period
-      const stats = await dashboardService.getStats(user.id, period, supabase);
+      const stats = await dashboardService.getStats(user.id, period, supabase, date);
       
       // Log success with requested period
-      logger.info({ userId: user.id, period }, 'Dashboard stats retrieved');
+      logger.info({ userId: user.id, period, date }, 'Dashboard stats retrieved');
 
       // Return statistics
       return sendSuccess(c, stats);

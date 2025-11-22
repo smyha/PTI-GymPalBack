@@ -15,8 +15,10 @@ export const dashboardService = {
   /**
    * Gets dashboard overview for a user
    */
-  async getOverview(userId: string, dbClient?: SupabaseClient<Database>): Promise<any> {
+  async getOverview(userId: string, dbClient?: SupabaseClient<Database>, referenceDate?: string): Promise<any> {
     const client = dbClient || supabase;
+    const now = referenceDate ? new Date(referenceDate) : new Date();
+    const todayStr = referenceDate || now.toISOString().split('T')[0];
 
     // Get workout count (total workouts created)
     const { count: workoutCount } = await client
@@ -24,16 +26,15 @@ export const dashboardService = {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
 
-    // Calculate start of current week (Monday)
-    const now = new Date();
+    // Calculate start of current week (Monday) based on reference date
     const startOfWeek = new Date(now);
-    const day = now.getDay() || 7; // Make Sunday (0) the last day
+    const day = startOfWeek.getDay() || 7; // Make Sunday (0) the last day
     if (day !== 1) {
-        startOfWeek.setHours(-24 * (day - 1));
-    } else {
-        startOfWeek.setHours(0, 0, 0, 0);
+        startOfWeek.setDate(startOfWeek.getDate() - day + 1);
     }
     startOfWeek.setHours(0, 0, 0, 0);
+    // If reference date is provided, we use it as "Today".
+    // startOfWeek is now Monday of that week.
 
     // Get completed scheduled workouts this week
     const { data: completedThisWeek } = await client
@@ -66,8 +67,10 @@ export const dashboardService = {
     let streak = 0;
     if (allCompletedDates && allCompletedDates.length > 0) {
       const distinctDates = [...new Set(allCompletedDates.map((d: any) => d.scheduled_date))];
-      const today = new Date().toISOString().split('T')[0];
-      const yesterdayDate = new Date();
+      
+      // Check streak relative to "Today" (referenceDate)
+      const today = todayStr;
+      const yesterdayDate = new Date(now);
       yesterdayDate.setDate(yesterdayDate.getDate() - 1);
       const yesterday = yesterdayDate.toISOString().split('T')[0];
 
@@ -92,7 +95,6 @@ export const dashboardService = {
     }
 
     // Get Today's Workout
-    const todayStr = new Date().toISOString().split('T')[0];
     const { data: todayScheduled } = await client
       .from('scheduled_workouts')
       .select(`
@@ -126,20 +128,18 @@ export const dashboardService = {
   /**
    * Gets statistics for a specific period
    */
-  async getStats(userId: string, period: string, dbClient?: SupabaseClient<Database>): Promise<Unified.DashboardStats> {
+  async getStats(userId: string, period: string, dbClient?: SupabaseClient<Database>, referenceDate?: string): Promise<Unified.DashboardStats> {
     const client = dbClient || supabase;
     let startDate: Date;
-    const now = new Date();
+    const now = referenceDate ? new Date(referenceDate) : new Date();
 
     switch (period) {
       case 'week':
         // Start of current week (Monday)
         startDate = new Date(now);
-        const day = now.getDay() || 7;
+        const day = startDate.getDay() || 7;
         if (day !== 1) {
-            startDate.setHours(-24 * (day - 1));
-        } else {
-            startDate.setHours(0, 0, 0, 0);
+            startDate.setDate(startDate.getDate() - day + 1);
         }
         startDate.setHours(0, 0, 0, 0);
         break;
@@ -155,8 +155,7 @@ export const dashboardService = {
         startDate = new Date(0); // All time
         break;
       default:
-        // Default to last 30 days if unknown period, or maybe just all time?
-        // Let's default to month for safety if not specified
+        // Default to last 30 days if unknown period
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
