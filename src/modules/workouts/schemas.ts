@@ -4,7 +4,7 @@ export const workoutSchemas = {
   create: z.object({
     name: z.string().min(1).max(100),
     description: z.string().max(500).optional(),
-    duration_minutes: z.number().int().min(1).max(600).optional().default(60),
+    duration_minutes: z.number().int().min(1).max(300).optional().default(60),
     type: z.string().optional(),
     difficulty: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).optional(),
     is_template: z.boolean().optional(),

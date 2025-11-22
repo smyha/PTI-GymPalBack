@@ -3,8 +3,9 @@
  * Business logic layer for workout management operations
  */
 
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { insertRow, selectRow, selectRows, updateRow } from '../../core/config/database-helpers.js';
-import { supabase } from '../../core/config/database.js';
+import { supabase, supabaseAdmin } from '../../core/config/database.js';
 import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 import type * as Unified from '../../core/types/unified.types.js';
 import type { CreateWorkoutData, UpdateWorkoutData, WorkoutFilters } from './types.js';
@@ -42,28 +43,38 @@ export const workoutService = {
   /**
    * Creates a new workout with exercises
    */
-  async create(userId: string, data: CreateWorkoutData): Promise<Unified.Workout> {
+  async create(userId: string, data: CreateWorkoutData, dbClient?: SupabaseClient): Promise<Unified.Workout> {
     const workoutData: any = {
       user_id: userId,
       name: data.name,
-      description: data.description,
-      type: data.type,
-      duration_minutes: data.duration_minutes,
+      description: data.description || null,
+      type: data.type || null,
+      duration_minutes: data.duration_minutes || 60,
       difficulty: data.difficulty || 'beginner',
       is_template: data.is_template || false,
       is_public: data.is_public || false,
-      target_goal: data.target_goal,
-      target_level: data.target_level,
-      days_per_week: data.days_per_week,
+      target_goal: data.target_goal || null,
+      target_level: data.target_level || null,
+      days_per_week: data.days_per_week || null,
       equipment_required: data.equipment_required || [],
-      user_notes: data.user_notes,
+      user_notes: data.user_notes || null,
       tags: data.tags || [],
     };
 
-    const { data: workout, error } = await insertRow('workouts', workoutData);
+    // Use provided client (authenticated) or admin client as fallback
+    const client = dbClient || supabaseAdmin;
+
+    const { data: workout, error } = await client
+      .from('workouts')
+      .insert(workoutData as any)
+      .select()
+      .single();
 
     if (error) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create workout: ${error.message}`);
+      // Log detailed database error
+      console.error('Database Error creating workout:', JSON.stringify(error, null, 2));
+      console.error('Payload:', JSON.stringify(workoutData, null, 2));
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create workout: ${error.message || error.details || 'Unknown DB error'}`);
     }
 
     if (!workout) {
@@ -85,11 +96,12 @@ export const workoutService = {
           rest_seconds: 60, // Default rest time
         };
 
-        const { error: exerciseError } = await supabase
+        const { error: exerciseError } = await client
           .from('workout_exercises')
-          .insert(exerciseData);
+          .insert(exerciseData as any);
 
         if (exerciseError) {
+          console.error('Database Error adding exercise:', JSON.stringify(exerciseError, null, 2));
           throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to add exercise to workout: ${exerciseError.message}`);
         }
       }
@@ -101,12 +113,15 @@ export const workoutService = {
   /**
    * Finds multiple workouts with filters
    */
-  async findMany(userId: string, filters: WorkoutFilters): Promise<Unified.PaginatedList<Unified.Workout>> {
+  async findMany(userId: string, filters: WorkoutFilters, dbClient?: SupabaseClient): Promise<Unified.PaginatedList<Unified.Workout>> {
     const { page = 1, limit = 20, search, difficulty } = filters;
     const offset = (page - 1) * limit;
 
+    // Use provided client (authenticated) or admin client as fallback
+    const client = dbClient || supabaseAdmin;
+
     // Build query for counting total records
-    let countQuery = supabase
+    let countQuery = client
       .from('workouts')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
@@ -127,7 +142,7 @@ export const workoutService = {
     }
 
     // Build query for fetching data with exercises
-    let query = supabase
+    let query = client
       .from('workouts')
       .select(`
         *,
@@ -355,6 +370,22 @@ export const workoutService = {
     }
 
     return mapWorkoutRowToWorkout(newWorkout);
+  },
+
+  /**
+   * Get workout count for a user
+   */
+  async getUserWorkoutCount(userId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('workouts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get workout count: ${error.message}`);
+    }
+
+    return count || 0;
   },
 };
 

@@ -169,7 +169,22 @@ export const exerciseService = {
     }
 
     if (muscle_group) {
-      combined = combined.filter((e: any) => e.muscle_group === muscle_group);
+      combined = combined.filter((e: any) => {
+        // Check muscle_group column
+        if (e.muscle_group === muscle_group) return true;
+        
+        // Check muscle_groups array column
+        if (Array.isArray(e.muscle_groups)) {
+           // Check if array contains exact match
+           if (e.muscle_groups.includes(muscle_group)) return true;
+           
+           // Check if any element in array contains the muscle group string (partial match)
+           // This handles cases like "chest, triceps" stored as single string in array or similar variants
+           if (e.muscle_groups.some((mg: string) => mg.toLowerCase().includes(muscle_group.toLowerCase()))) return true;
+        }
+        
+        return false;
+      });
     }
 
     if (equipment) {

@@ -47,14 +47,15 @@ export const workoutHandlers = {
     // Extract authenticated user and validated data from request
     const user = getUserFromCtx(c);
     const data = c.get('validated') as CreateWorkoutData;
+    const supabase = c.get('supabase'); // Get authenticated client
 
     try {
       // Create workout in service associated with user
-      const workout = await workoutService.create(user.id, data);
-      
+      const workout = await workoutService.create(user.id, data, supabase);
+
       // Log creation for audit
       logger.info({ userId: user.id, workoutId: workout.id }, 'Workout created');
-      
+
       // Return created workout with 201 status code
       return sendCreated(c, workout);
     } catch (error: any) {
@@ -82,11 +83,12 @@ export const workoutHandlers = {
     // Get authenticated user and validated filters
     const user = getUserFromCtx(c);
     const filters = c.get('validated') as WorkoutFilters;
+    const supabase = c.get('supabase'); // Get authenticated client
 
     try {
       // Find workouts matching the filters
-      const workouts = await workoutService.findMany(user.id, filters);
-      
+      const workouts = await workoutService.findMany(user.id, filters, supabase);
+
       // Return list of workouts
       return sendSuccess(c, workouts);
     } catch (error: any) {
@@ -118,12 +120,12 @@ export const workoutHandlers = {
     try {
       // Find workout by ID, verifying it belongs to user
       const workout = await workoutService.findById(id, user.id);
-      
+
       // If it doesn't exist, return 404 error
       if (!workout) {
         return sendNotFound(c, 'Workout');
       }
-      
+
       // Return found workout
       return sendSuccess(c, workout);
     } catch (error: any) {
@@ -160,15 +162,15 @@ export const workoutHandlers = {
     try {
       // Update workout, verifying ownership
       const workout = await workoutService.update(id, user.id, data);
-      
+
       // If it doesn't exist, return 404 error
       if (!workout) {
         return sendNotFound(c, 'Workout');
       }
-      
+
       // Log update
       logger.info({ userId: user.id, workoutId: id }, 'Workout updated');
-      
+
       // Return updated workout
       return sendUpdated(c, workout);
     } catch (error: any) {
@@ -260,6 +262,26 @@ export const workoutHandlers = {
     } catch (error: any) {
       // Log errors
       logger.error({ error, userId: user.id, sourceWorkoutId }, 'Failed to copy workout');
+      throw error;
+    }
+  },
+
+  /**
+   * Get workout count for a user
+   */
+  async getWorkoutCount(c: Context) {
+    const user = getUserFromCtx(c);
+    const userId = c.req.param('userId');
+
+    if (!userId) {
+      return sendNotFound(c, 'User ID');
+    }
+
+    try {
+      const count = await workoutService.getUserWorkoutCount(userId);
+      return sendSuccess(c, { count });
+    } catch (error: any) {
+      logger.error({ error, userId: user.id, targetUserId: userId }, 'Failed to get workout count');
       throw error;
     }
   },

@@ -392,5 +392,15 @@ workoutRoutes.post(
   workoutHandlers.copy
 );
 
+/**
+ * Handler: Get workout count
+ *
+ * Endpoint: GET /api/v1/workouts/users/:userId/count
+ */
+workoutRoutes.get(
+  '/users/:userId/count',
+  workoutHandlers.getWorkoutCount
+);
+
 export default workoutRoutes;
 
