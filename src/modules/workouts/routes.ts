@@ -393,13 +393,23 @@ workoutRoutes.post(
 );
 
 /**
- * Handler: Get workout count
+ * Handler: Get workout count (total created workouts)
  *
  * Endpoint: GET /api/v1/workouts/users/:userId/count
  */
 workoutRoutes.get(
   '/users/:userId/count',
   workoutHandlers.getWorkoutCount
+);
+
+/**
+ * Handler: Get completed workout counts by period
+ *
+ * Endpoint: GET /api/v1/workouts/users/:userId/completed-count?period=week|month|year|all&date=YYYY-MM-DD
+ */
+workoutRoutes.get(
+  '/users/:userId/completed-count',
+  workoutHandlers.getCompletedWorkoutCounts
 );
 
 export default workoutRoutes;

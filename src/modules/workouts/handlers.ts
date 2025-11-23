@@ -269,7 +269,7 @@ export const workoutHandlers = {
   },
 
   /**
-   * Get workout count for a user
+   * Get workout count for a user (total created workouts)
    */
   async getWorkoutCount(c: Context) {
     const user = getUserFromCtx(c);
@@ -284,6 +284,34 @@ export const workoutHandlers = {
       return sendSuccess(c, { count });
     } catch (error: any) {
       logger.error({ error, userId: user.id, targetUserId: userId }, 'Failed to get workout count');
+      throw error;
+    }
+  },
+
+  /**
+   * Get completed workout counts by period
+   */
+  async getCompletedWorkoutCounts(c: Context) {
+    const user = getUserFromCtx(c);
+    const userId = c.req.param('userId');
+    const period = c.req.query('period') as 'week' | 'month' | 'year' | 'all' || 'all';
+    const date = c.req.query('date'); // Optional reference date
+
+    if (!userId) {
+      return sendNotFound(c, 'User ID');
+    }
+
+    // Validate period
+    if (!['week', 'month', 'year', 'all'].includes(period)) {
+      return c.json({ success: false, error: { message: 'Invalid period. Must be week, month, year, or all' } }, 400);
+    }
+
+    try {
+      const supabase = c.get('supabase');
+      const count = await workoutService.getCompletedWorkoutCounts(userId, period, supabase, date);
+      return sendSuccess(c, { count, period });
+    } catch (error: any) {
+      logger.error({ error, userId: user.id, targetUserId: userId, period }, 'Failed to get completed workout counts');
       throw error;
     }
   },

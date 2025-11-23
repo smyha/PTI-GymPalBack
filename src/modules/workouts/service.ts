@@ -379,7 +379,7 @@ export const workoutService = {
   },
 
   /**
-   * Get workout count for a user
+   * Get workout count for a user (total created workouts)
    */
   async getUserWorkoutCount(userId: string): Promise<number> {
     // Use RPC to get accurate count regardless of visibility/RLS
@@ -388,6 +388,60 @@ export const workoutService = {
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get workout count: ${error.message}`);
+    }
+
+    return count || 0;
+  },
+
+  /**
+   * Get completed workout counts by period (week, month, year, all)
+   * Counts workouts from scheduled_workouts with status='completed'
+   */
+  async getCompletedWorkoutCounts(userId: string, period: 'week' | 'month' | 'year' | 'all', dbClient?: SupabaseClient, referenceDate?: string): Promise<number> {
+    const client = dbClient || supabase;
+    const now = referenceDate ? new Date(referenceDate) : new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'week':
+        // Start of current week (Monday)
+        startDate = new Date(now);
+        const day = startDate.getDay() || 7;
+        if (day !== 1) {
+          startDate.setDate(startDate.getDate() - day + 1);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'all':
+        startDate = new Date(0); // All time
+        break;
+      default:
+        startDate = new Date(0);
+    }
+
+    // Count completed scheduled workouts in period
+    let query = client
+      .from('scheduled_workouts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'completed');
+
+    if (period !== 'all') {
+      query = query.gte('scheduled_date', startDate.toISOString().split('T')[0]);
+    }
+
+    const { count, error } = await query;
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get completed workout count: ${error.message}`);
     }
 
     return count || 0;
