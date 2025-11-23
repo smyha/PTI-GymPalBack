@@ -359,8 +359,11 @@ export const authHandlers = {
         return sendError(c, ERROR_CODES.FORBIDDEN, 'You can only delete your own account', 403);
       }
       
-      // Delete account in auth service
-      await authService.deleteAccount(user.id);
+      // Get authenticated supabase client
+      const supabase = c.get('supabase');
+      
+      // Delete account in auth service (pass authenticated client)
+      await authService.deleteAccount(user.id, supabase);
       
       // Log account deletion
       authLogger.info({ userId: user.id }, 'Account deleted successfully');

@@ -9,6 +9,8 @@ import { selectRow, upsertRow } from '../../core/config/database-helpers.js';
 import { AppError, ErrorCode, isAuthError } from '../../core/utils/error-types.js';
 import type * as Unified from '../../core/types/unified.types.js';
 import type { RegisterData, LoginData } from './types.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../../core/types/database.types.js';
 
 /**
  * Authentication service object containing all authentication business logic methods
@@ -259,16 +261,23 @@ export const authService = {
   /**
    * Deletes user account
    *
-   * Uses admin privileges to delete the user from auth.users.
+   * Uses the database function delete_own_account() which allows users
+   * to delete their own account without requiring SUPABASE_SERVICE_ROLE_KEY.
+   * The function uses SECURITY DEFINER to execute with elevated privileges
+   * while ensuring users can only delete their own accounts.
+   *
    * This triggers cascading deletes in the database for all user data.
    */
-  async deleteAccount(userId: string): Promise<void> {
-    // Use admin client to delete user directly
-    // Handler already verified that the requester matches userId
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+  async deleteAccount(userId: string, dbClient?: SupabaseClient<Database>): Promise<void> {
+    // Use provided client (authenticated) or default supabase client
+    // The RPC function delete_own_account() uses SECURITY DEFINER and auth.uid()
+    // to ensure users can only delete their own account
+    const client = dbClient || supabase;
     
-    if (authError) {
-      throw new AppError(ErrorCode.INTERNAL_ERROR, `Failed to delete account: ${authError.message}`);
+    const { error: rpcError } = await client.rpc('delete_own_account');
+    
+    if (rpcError) {
+      throw new AppError(ErrorCode.INTERNAL_ERROR, `Failed to delete account: ${rpcError.message}`);
     }
   },
 };
