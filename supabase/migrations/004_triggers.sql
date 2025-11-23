@@ -76,7 +76,7 @@ CREATE OR REPLACE FUNCTION public.delete_own_account()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = ''
+SET search_path = public, pg_catalog
 AS $$
 DECLARE
   current_user_id UUID;
@@ -91,11 +91,10 @@ BEGIN
 
   -- Delete user from auth.users (this will cascade to profiles and other tables)
   -- Note: This requires superuser privileges, so we use SECURITY DEFINER
-  DELETE FROM auth.users WHERE id = current_user_id;
-  
   -- The CASCADE will automatically handle:
   -- - profiles table (via ON DELETE CASCADE)
   -- - All other related tables (via their CASCADE relationships)
+  DELETE FROM auth.users WHERE id = current_user_id;
 END;
 $$;
 
