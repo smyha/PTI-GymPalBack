@@ -422,5 +422,16 @@ workoutRoutes.get(
   workoutHandlers.getCompletedExerciseCounts
 );
 
+/**
+ * Handler: Get current streak (consecutive days with scheduled workouts)
+ *
+ * Endpoint: GET /api/v1/workouts/users/:userId/streak?date=YYYY-MM-DD
+ */
+workoutRoutes.get(
+  '/users/:userId/streak',
+  validate(workoutSchemas.streak, 'query'),
+  workoutHandlers.getCurrentStreak
+);
+
 export default workoutRoutes;
 

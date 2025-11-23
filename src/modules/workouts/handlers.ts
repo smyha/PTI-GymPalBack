@@ -339,8 +339,31 @@ export const workoutHandlers = {
       const count = await workoutService.getCompletedExerciseCounts(userId, period, supabase, date);
       return sendSuccess(c, { count, period });
     } catch (error: any) {
-      logger.error({ error, userId: user.id, targetUserId: userId, period }, 'Failed to get completed exercise counts');
-      throw error;
-    }
+        logger.error({ error, userId: user.id, targetUserId: userId, period }, 'Failed to get completed exercise counts');
+        throw error;
+      }
+    },
+
+    /**
+     * Get current streak (consecutive days with scheduled workouts)
+     */
+    async getCurrentStreak(c: Context) {
+      const user = getUserFromCtx(c);
+      const userId = c.req.param('userId');
+      const { date } = c.get('validated') as { date?: string };
+      const supabase = c.get('supabase');
+
+      if (!userId) {
+        return sendNotFound(c, 'User ID');
+      }
+
+      try {
+        const streak = await workoutService.getCurrentStreak(userId, supabase, date);
+        return sendSuccess(c, { streak });
+      } catch (error: any) {
+        logger.error({ error, userId: user.id, targetUserId: userId }, 'Failed to get current streak');
+        throw error;
+      }
+    },
   },
 };

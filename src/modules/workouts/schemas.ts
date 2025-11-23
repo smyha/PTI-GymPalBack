@@ -55,5 +55,15 @@ export const workoutSchemas = {
   params: z.object({
     id: z.string().uuid('Invalid workout ID format'),
   }),
+
+  completedCounts: z.object({
+    userId: z.string().uuid('Invalid user ID format'),
+    period: z.enum(['week', 'month', 'year', 'all']).default('all'),
+    date: z.string().optional(),
+  }),
+
+  streak: z.object({
+    date: z.string().optional(),
+  }),
 } as const;
 

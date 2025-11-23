@@ -537,5 +537,70 @@ export const workoutService = {
 
     return count || 0;
   },
+
+  /**
+   * Get current streak (consecutive days with scheduled workouts)
+   * Counts days backwards from today where user has scheduled workouts
+   */
+  async getCurrentStreak(userId: string, dbClient?: SupabaseClient, referenceDate?: string): Promise<number> {
+    const client = dbClient || supabase;
+    const now = referenceDate ? new Date(referenceDate) : new Date();
+    const todayStr = referenceDate || now.toISOString().split('T')[0];
+
+    // Get all scheduled workouts (any status) ordered by date descending
+    const { data: scheduledWorkouts, error } = await client
+      .from('scheduled_workouts')
+      .select('scheduled_date')
+      .eq('user_id', userId)
+      .order('scheduled_date', { ascending: false });
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get scheduled workouts: ${error.message}`);
+    }
+
+    if (!scheduledWorkouts || scheduledWorkouts.length === 0) {
+      return 0;
+    }
+
+    // Get distinct dates and convert to Date objects for easier comparison
+    const distinctDatesSet = new Set(scheduledWorkouts.map((sw: any) => sw.scheduled_date));
+    const distinctDates = Array.from(distinctDatesSet).sort().reverse(); // Most recent first
+
+    // Calculate streak: count consecutive days backwards from today
+    let streak = 0;
+    let currentDate = new Date(now);
+    currentDate.setHours(0, 0, 0, 0);
+
+    // Check if today or yesterday has a scheduled workout to start the streak
+    const todayDateStr = currentDate.toISOString().split('T')[0];
+    const yesterdayDate = new Date(currentDate);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayDateStr = yesterdayDate.toISOString().split('T')[0];
+
+    // Start counting from today or yesterday if today has no workout
+    let checkDate = distinctDatesSet.has(todayDateStr) 
+      ? new Date(todayDateStr)
+      : (distinctDatesSet.has(yesterdayDateStr) ? new Date(yesterdayDateStr) : null);
+
+    if (!checkDate) {
+      return 0; // No workout today or yesterday, streak is 0
+    }
+
+    // Count consecutive days backwards
+    while (checkDate) {
+      const checkDateStr = checkDate.toISOString().split('T')[0];
+      
+      if (distinctDatesSet.has(checkDateStr)) {
+        streak++;
+        // Move to previous day
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        // Streak broken
+        break;
+      }
+    }
+
+    return streak;
+  },
 };
 

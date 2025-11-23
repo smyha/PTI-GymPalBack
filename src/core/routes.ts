@@ -72,6 +72,9 @@ export const WORKOUT_ROUTES = {
   SESSIONS: '/:id/sessions',
   START_SESSION: '/:id/sessions/start',
   COMPLETE_SESSION: '/:id/sessions/:sessionId/complete',
+  COMPLETED_WORKOUT_COUNTS: '/users/:userId/completed-count',
+  COMPLETED_EXERCISE_COUNTS: '/users/:userId/completed-exercises-count',
+  CURRENT_STREAK: '/users/:userId/streak',
 } as const;
 
 // ============================================================================
