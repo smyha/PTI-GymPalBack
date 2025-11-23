@@ -446,5 +446,76 @@ export const workoutService = {
 
     return count || 0;
   },
+
+  /**
+   * Get completed exercise counts by period (week, month, year, all)
+   * Counts exercises from workout_exercises of completed scheduled_workouts
+   */
+  async getCompletedExerciseCounts(userId: string, period: 'week' | 'month' | 'year' | 'all', dbClient?: SupabaseClient, referenceDate?: string): Promise<number> {
+    const client = dbClient || supabase;
+    const now = referenceDate ? new Date(referenceDate) : new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'week':
+        // Start of current week (Monday)
+        startDate = new Date(now);
+        const day = startDate.getDay() || 7;
+        if (day !== 1) {
+          startDate.setDate(startDate.getDate() - day + 1);
+        }
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'all':
+        startDate = new Date(0); // All time
+        break;
+      default:
+        startDate = new Date(0);
+    }
+
+    // Get completed scheduled workouts in period
+    let scheduledQuery = client
+      .from('scheduled_workouts')
+      .select('workout_id')
+      .eq('user_id', userId)
+      .eq('status', 'completed');
+
+    if (period !== 'all') {
+      scheduledQuery = scheduledQuery.gte('scheduled_date', startDate.toISOString().split('T')[0]);
+    }
+
+    const { data: completedScheduled, error: scheduledError } = await scheduledQuery;
+
+    if (scheduledError) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get completed scheduled workouts: ${scheduledError.message}`);
+    }
+
+    if (!completedScheduled || completedScheduled.length === 0) {
+      return 0;
+    }
+
+    // Get unique workout IDs
+    const workoutIds = [...new Set(completedScheduled.map((sw: any) => sw.workout_id))];
+
+    // Count exercises from these workouts
+    const { count, error } = await client
+      .from('workout_exercises')
+      .select('*', { count: 'exact', head: true })
+      .in('workout_id', workoutIds);
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get completed exercise count: ${error.message}`);
+    }
+
+    return count || 0;
+  },
 };
 

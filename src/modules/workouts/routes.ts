@@ -412,5 +412,15 @@ workoutRoutes.get(
   workoutHandlers.getCompletedWorkoutCounts
 );
 
+/**
+ * Handler: Get completed exercise counts by period
+ *
+ * Endpoint: GET /api/v1/workouts/users/:userId/completed-exercises-count?period=week|month|year|all&date=YYYY-MM-DD
+ */
+workoutRoutes.get(
+  '/users/:userId/completed-exercises-count',
+  workoutHandlers.getCompletedExerciseCounts
+);
+
 export default workoutRoutes;
 
