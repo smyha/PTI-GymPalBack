@@ -771,6 +771,58 @@
         }
       }
     },
+    "/api/v1/social/posts/{id}/repost": {
+      "post": {
+        "tags": ["Social"],
+        "summary": "Repost post",
+        "description": "Repost a post (toggle repost/unrepost)",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Post ID to repost"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post reposted/unreposted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "reposted": {
+                          "type": "boolean",
+                          "description": "True if post was reposted, false if unreposted"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/api/v1/social/posts/{id}/comments": {
       "get": {
         "tags": ["Social"],
@@ -1483,12 +1535,287 @@
         }
       }
     },
+    "/api/v1/workouts/users/{userId}/count": {
+      "get": {
+        "tags": ["Workouts"],
+        "summary": "Get workout count",
+        "description": "Get total number of workouts created by a user",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "User ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workout count retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "example": 15
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/users/{userId}/completed-count": {
+      "get": {
+        "tags": ["Workouts"],
+        "summary": "Get completed workout count",
+        "description": "Get count of completed workouts for a user by period (week, month, year, all)",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "User ID"
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["week", "month", "year", "all"],
+              "default": "all"
+            },
+            "description": "Time period for counting completed workouts"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional reference date (YYYY-MM-DD format) for calculations"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completed workout count retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "example": 4
+                        },
+                        "period": {
+                          "type": "string",
+                          "example": "week"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/users/{userId}/completed-exercises-count": {
+      "get": {
+        "tags": ["Workouts"],
+        "summary": "Get completed exercise count",
+        "description": "Get count of exercises from completed workouts for a user by period (week, month, year, all)",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "User ID"
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["week", "month", "year", "all"],
+              "default": "all"
+            },
+            "description": "Time period for counting exercises"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional reference date (YYYY-MM-DD format) for calculations"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completed exercise count retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "example": 12
+                        },
+                        "period": {
+                          "type": "string",
+                          "example": "week"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/users/{userId}/streak": {
+      "get": {
+        "tags": ["Workouts"],
+        "summary": "Get current streak",
+        "description": "Get consecutive days with scheduled workouts for a user",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "User ID"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional reference date (YYYY-MM-DD format) for streak calculation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current streak retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "streak": {
+                          "type": "integer",
+                          "example": 7,
+                          "description": "Number of consecutive days with scheduled workouts"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/api/v1/dashboard": {
       "get": {
         "tags": ["Dashboard"],
         "summary": "Get dashboard data",
         "description": "Get dashboard data for the current user",
         "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional reference date (YYYY-MM-DD format) for calculations"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Dashboard data retrieved successfully",
@@ -1514,13 +1841,23 @@
         "security": [{"bearerAuth": []}],
         "parameters": [
           {
-            "name": "timeframe",
+            "name": "period",
             "in": "query",
             "schema": {
               "type": "string",
               "enum": ["week", "month", "year", "all"],
               "default": "month"
-            }
+            },
+            "description": "Time period for statistics (week, month, year, all)"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional reference date (YYYY-MM-DD format) for calculations"
           },
           {
             "name": "include_social",
@@ -2913,6 +3250,11 @@
               "type": "string"
             },
             "maxItems": 5
+          },
+          "workout_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional workout ID to reference in the post"
           }
         }
       },
@@ -3556,6 +3898,15 @@
           "author": {
             "$ref": "#/components/schemas/User"
           },
+          "workout_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional workout ID referenced in the post"
+          },
+          "workout": {
+            "$ref": "#/components/schemas/Workout",
+            "description": "Optional workout details if workout_id is present"
+          },
           "likesCount": {
             "type": "integer",
             "example": 15
@@ -3564,9 +3915,38 @@
             "type": "integer",
             "example": 3
           },
+          "repostsCount": {
+            "type": "integer",
+            "example": 5,
+            "description": "Number of times the post has been reposted"
+          },
           "isLiked": {
             "type": "boolean",
             "example": false
+          },
+          "isRepost": {
+            "type": "boolean",
+            "example": false,
+            "description": "True if this is a repost"
+          },
+          "repostedBy": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "username": {
+                "type": "string"
+              },
+              "fullName": {
+                "type": "string"
+              },
+              "avatar": {
+                "type": "string"
+              }
+            },
+            "description": "User who reposted (only present if isRepost is true)"
           },
           "createdAt": {
             "type": "string",

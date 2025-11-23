@@ -365,5 +365,4 @@ export const workoutHandlers = {
         throw error;
       }
     },
-  },
 };
