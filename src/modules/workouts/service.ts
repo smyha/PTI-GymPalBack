@@ -357,22 +357,38 @@ export const workoutService = {
       const { data: exercises, error: exercisesError } = await supabaseAdmin
         .rpc('get_workout_exercises_by_workout_id', { p_workout_id: sourceWorkoutId }) as any;
 
-      if (!exercisesError && exercises && Array.isArray(exercises) && exercises.length > 0) {
+      if (exercisesError) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to fetch workout exercises: ${exercisesError.message}`);
+      }
+
+      if (exercises && Array.isArray(exercises) && exercises.length > 0) {
+        // Use supabaseAdmin to insert exercises (bypasses RLS)
         for (const exercise of exercises) {
-          await supabase.from('workout_exercises').insert({
-            workout_id: (newWorkout as any).id,
-            exercise_id: exercise.exercise_id,
-            sets: exercise.sets,
-            reps: exercise.reps,
-            weight_kg: exercise.weight_kg,
-            order_index: exercise.order_index,
-            rest_seconds: exercise.rest_seconds,
-            notes: exercise.notes,
-          } as any);
+          const { error: insertError } = await supabaseAdmin
+            .from('workout_exercises')
+            .insert({
+              workout_id: (newWorkout as any).id,
+              exercise_id: exercise.exercise_id,
+              sets: exercise.sets,
+              reps: exercise.reps,
+              weight_kg: exercise.weight_kg,
+              order_index: exercise.order_index,
+              rest_seconds: exercise.rest_seconds,
+              notes: exercise.notes,
+            } as any);
+
+          if (insertError) {
+            throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to copy exercise: ${insertError.message}`);
+          }
         }
       }
-    } catch (err) {
-      // Don't fail the whole operation if exercises fail
+    } catch (err: any) {
+      // If it's an AppError, re-throw it
+      if (err.code) {
+        throw err;
+      }
+      // Otherwise, wrap it in an AppError
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to copy workout exercises: ${err.message || 'Unknown error'}`);
     }
 
     return mapWorkoutRowToWorkout(newWorkout);
