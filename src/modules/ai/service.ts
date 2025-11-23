@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { RECEPTION_AGENT_PRIVATE_KEY } from '../../core/config/agent-key.js';
 import jwt from 'jsonwebtoken';
 import { logger } from '../../core/config/logger.js';
+import { env } from '../../core/config/env.js';
 
 export const aiService = {
   /**
@@ -18,10 +19,10 @@ export const aiService = {
   async sendMessageToAgent(userId: string, text: string, conversationId?: string, agentType: 'reception' | 'data' | 'routine' = 'reception', userSupabase?: SupabaseClient<Database>): Promise<string> {
     const db = userSupabase || supabase;
     const webhookUrl = agentType === 'data'
-      ? 'https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/dataAgent'
+      ? env.DATA_AGENT_WEBHOOK_URL
       : agentType === 'routine'
-        ? 'https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/routineAgent'
-        : 'https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/receptionAgent';
+        ? env.ROUTINE_AGENT_WEBHOOK_URL
+        : env.RECEPTION_AGENT_WEBHOOK_URL;
     
     // Log which agent is being contacted
     logger.info({ userId, agentType, webhookUrl }, `Communicating with ${agentType} agent`);

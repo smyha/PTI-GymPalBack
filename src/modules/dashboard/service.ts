@@ -36,13 +36,22 @@ export const dashboardService = {
     // If reference date is provided, we use it as "Today".
     // startOfWeek is now Monday of that week.
 
+    // Log start of week for debugging
+    console.log('Start of week:', startOfWeek.toISOString());
+
     // Get completed scheduled workouts this week
-    const { data: completedThisWeek } = await client
+    const { data: completedThisWeek, error: completedError } = await client
       .from('scheduled_workouts')
       .select('workout_id')
       .eq('user_id', userId)
       .eq('status', 'completed')
       .gte('scheduled_date', startOfWeek.toISOString().split('T')[0]);
+
+    if (completedError) {
+        console.error('Error fetching completed workouts:', completedError);
+    } else {
+        console.log('Completed workouts this week:', completedThisWeek?.length);
+    }
 
     const completedWorkoutIds = (completedThisWeek || []).map((sw: any) => sw.workout_id);
 

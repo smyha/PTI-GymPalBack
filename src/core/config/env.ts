@@ -52,6 +52,11 @@ const envSchema = z.object({
   // Additional Configuration
   LOG_LEVEL: z.string().default('info'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  
+  // AI Agent Webhook URLs
+  RECEPTION_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/receptionAgent'),
+  DATA_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/dataAgent'),
+  ROUTINE_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/routineAgent'),
 });
 
 export const env = envSchema.parse(process.env);

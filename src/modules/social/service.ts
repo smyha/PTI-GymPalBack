@@ -270,14 +270,15 @@ export const socialService = {
   /**
    * Deletes a post
    */
-  async deletePost(id: string, userId: string): Promise<boolean> {
-    const { error } = await supabase.from('posts').delete().eq('id', id).eq('user_id', userId);
+  async deletePost(id: string, userId: string, dbClient?: SupabaseClient<Database>): Promise<boolean> {
+    const client = dbClient || supabase;
+    const { error, count } = await client.from('posts').delete({ count: 'exact' }).eq('id', id).eq('user_id', userId);
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to delete post: ${error.message}`);
     }
 
-    return true;
+    return (count || 0) > 0;
   },
 
   /**
