@@ -1064,6 +1064,97 @@
         }
       }
     },
+    "/api/v1/social/users/{userId}/reposts": {
+      "get": {
+        "tags": ["Social"],
+        "summary": "Get user reposts",
+        "description": "Get paginated list of posts reposted by a user",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "User ID"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "description": "Results per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User reposts retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "original_post_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "reposted_by_user_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "reposted_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "posts": {
+                            "$ref": "#/components/schemas/Post"
+                          }
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/api/v1/workouts": {
       "get": {
         "tags": ["Workouts"],
