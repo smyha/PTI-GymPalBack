@@ -226,6 +226,7 @@ export interface PostAuthor {
   username?: string;
   full_name?: string;
   avatar_url?: string;
+  isFollowing?: boolean;
 }
 
 export interface Post {

@@ -6,6 +6,7 @@
 import { insertRow, updateRow } from '../../core/config/database-helpers.js';
 import { supabase, supabaseAdmin } from '../../core/config/database.js';
 import { AppError, ErrorCode } from '../../core/utils/error-types.js';
+import { logger } from '../../core/config/logger.js';
 import type * as Unified from '../../core/types/unified.types.js';
 import type { Database } from '../../core/types/index.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -66,6 +67,24 @@ export const socialService = {
 
     if (!post) {
       throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to create post');
+    }
+
+    // If post has a workout_id, mark the workout as shared
+    if (data.workout_id) {
+      try {
+        const { error: workoutUpdateError } = await client
+          .from('workouts')
+          .update({ is_shared: true })
+          .eq('id', data.workout_id);
+
+        if (workoutUpdateError) {
+          // Log error but don't fail the post creation
+          logger.error({ error: workoutUpdateError.message, workoutId: data.workout_id }, 'Failed to mark workout as shared');
+        }
+      } catch (err: any) {
+        // Log error but don't fail the post creation
+        logger.error({ error: err.message, workoutId: data.workout_id }, 'Failed to mark workout as shared');
+      }
     }
 
     return mapPostRowToPost(post);
@@ -319,6 +338,17 @@ export const socialService = {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to check like status: ${checkError.message}`);
     }
 
+    // Get the post to check if it has a workout_id
+    const { data: postData, error: postError } = await client
+      .from('posts')
+      .select('workout_id')
+      .eq('id', postId)
+      .maybeSingle();
+
+    if (postError) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get post: ${postError.message}`);
+    }
+
     if (existingLike) {
       // Unlike: delete the existing like
       const { error: deleteError } = await client
@@ -329,6 +359,31 @@ export const socialService = {
 
       if (deleteError) {
         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to unlike post: ${deleteError.message}`);
+      }
+
+      // If post has a workout_id, decrement like_count in workouts table
+      if (postData?.workout_id) {
+        try {
+          const { data: workoutData, error: fetchError } = await client
+            .from('workouts')
+            .select('like_count')
+            .eq('id', postData.workout_id)
+            .single();
+
+          if (!fetchError && workoutData) {
+            const newCount = Math.max(0, ((workoutData as any).like_count || 0) - 1);
+            const { error: updateError } = await client
+              .from('workouts')
+              .update({ like_count: newCount })
+              .eq('id', postData.workout_id);
+
+            if (updateError) {
+              logger.error({ error: updateError.message, workoutId: postData.workout_id }, 'Failed to decrement workout like_count');
+            }
+          }
+        } catch (err: any) {
+          logger.error({ error: err.message, workoutId: postData.workout_id }, 'Failed to decrement workout like_count');
+        }
       }
     } else {
       // Like: insert new like using authenticated client
@@ -343,6 +398,31 @@ export const socialService = {
 
       if (insertError) {
         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to like post: ${insertError.message}`);
+      }
+
+      // If post has a workout_id, increment like_count in workouts table
+      if (postData?.workout_id) {
+        try {
+          const { data: workoutData, error: fetchError } = await client
+            .from('workouts')
+            .select('like_count')
+            .eq('id', postData.workout_id)
+            .single();
+
+          if (!fetchError && workoutData) {
+            const newCount = ((workoutData as any).like_count || 0) + 1;
+            const { error: updateError } = await client
+              .from('workouts')
+              .update({ like_count: newCount })
+              .eq('id', postData.workout_id);
+
+            if (updateError) {
+              logger.error({ error: updateError.message, workoutId: postData.workout_id }, 'Failed to increment workout like_count');
+            }
+          }
+        } catch (err: any) {
+          logger.error({ error: err.message, workoutId: postData.workout_id }, 'Failed to increment workout like_count');
+        }
       }
     }
   },
@@ -671,10 +751,10 @@ export const socialService = {
 
       // Decrement reposts_count
       try {
-        // Get current count
+        // Get current count and workout_id
         const { data: postData, error: fetchError } = await client
           .from('posts')
-          .select('reposts_count')
+          .select('reposts_count, workout_id')
           .eq('id', postId)
           .single() as any;
 
@@ -692,6 +772,31 @@ export const socialService = {
         const updateError = (updateResult as any)?.error;
         if (updateError) {
           throw new Error(`Failed to update reposts_count: ${updateError.message}`);
+        }
+
+        // If post has a workout_id, decrement share_count in workouts table
+        if (postData.workout_id) {
+          try {
+            const { data: workoutData, error: workoutFetchError } = await client
+              .from('workouts')
+              .select('share_count')
+              .eq('id', postData.workout_id)
+              .single();
+
+            if (!workoutFetchError && workoutData) {
+              const newShareCount = Math.max(0, ((workoutData as any).share_count || 0) - 1);
+              const { error: workoutUpdateError } = await client
+                .from('workouts')
+                .update({ share_count: newShareCount })
+                .eq('id', postData.workout_id);
+
+              if (workoutUpdateError) {
+                logger.error({ error: workoutUpdateError.message, workoutId: postData.workout_id }, 'Failed to decrement workout share_count');
+              }
+            }
+          } catch (err: any) {
+            logger.error({ error: err.message, workoutId: postData.workout_id }, 'Failed to decrement workout share_count');
+          }
         }
       } catch (error: any) {
         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to decrement reposts: ${error.message}`);
@@ -713,10 +818,10 @@ export const socialService = {
 
       // Increment reposts_count
       try {
-        // Get current count
+        // Get current count and workout_id
         const { data: postData, error: fetchError } = await client
           .from('posts')
-          .select('reposts_count')
+          .select('reposts_count, workout_id')
           .eq('id', postId)
           .single() as any;
 
@@ -734,6 +839,31 @@ export const socialService = {
         const updateError = (updateResult as any)?.error;
         if (updateError) {
           throw new Error(`Failed to update reposts_count: ${updateError.message}`);
+        }
+
+        // If post has a workout_id, increment share_count in workouts table
+        if (postData.workout_id) {
+          try {
+            const { data: workoutData, error: workoutFetchError } = await client
+              .from('workouts')
+              .select('share_count')
+              .eq('id', postData.workout_id)
+              .single();
+
+            if (!workoutFetchError && workoutData) {
+              const newShareCount = ((workoutData as any).share_count || 0) + 1;
+              const { error: workoutUpdateError } = await client
+                .from('workouts')
+                .update({ share_count: newShareCount })
+                .eq('id', postData.workout_id);
+
+              if (workoutUpdateError) {
+                logger.error({ error: workoutUpdateError.message, workoutId: postData.workout_id }, 'Failed to increment workout share_count');
+              }
+            }
+          } catch (err: any) {
+            logger.error({ error: err.message, workoutId: postData.workout_id }, 'Failed to increment workout share_count');
+          }
         }
       } catch (error: any) {
         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to increment reposts: ${error.message}`);
