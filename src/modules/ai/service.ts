@@ -55,24 +55,45 @@ export const aiService = {
         { algorithm: 'PS512' }
       );
 
-      // Send request to webhook
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          user: userId,
-          text: text,
-          name: userName,
-        }),
-      });
+      // Send request to webhook with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      let response: Response;
+      try {
+        response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            user: userId,
+            text: text,
+            name: userName,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          logger.error({ userId, agentType, webhookUrl }, 'Agent request timeout');
+          throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Agent request timed out. Please try again.');
+        }
+        logger.error({ error: fetchError, userId, agentType, webhookUrl }, 'Failed to reach agent webhook');
+        throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `Failed to connect to agent: ${fetchError.message || 'Network error'}`);
+      }
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Webhook error: ${response.status} ${response.statusText}`, errorText);
-        throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `Agent unavailable: ${response.status}`);
+        const errorText = await response.text().catch(() => '');
+        // Check if response is HTML (ngrok error page)
+        if (errorText.includes('<html') || errorText.includes('ngrok')) {
+          logger.error({ userId, agentType, webhookUrl, status: response.status }, 'Agent webhook returned HTML error (likely ngrok issue)');
+          throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Agent service is temporarily unavailable. Please check the webhook URL configuration.');
+        }
+        logger.error({ userId, agentType, webhookUrl, status: response.status, errorText }, 'Agent webhook returned error');
+        throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `Agent unavailable: ${response.status} ${response.statusText}`);
       }
 
       // Check content-type or handle empty body
