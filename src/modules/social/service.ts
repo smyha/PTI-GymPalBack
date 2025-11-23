@@ -57,7 +57,7 @@ export const socialService = {
     // Use provided client (authenticated) or admin client as fallback
     // Using the authenticated client ensures RLS policies are respected and applied correctly
     const client = dbClient || supabaseAdmin;
-    
+
     const { data: post, error } = await insertRow('posts', postData, client);
 
     if (error) {
@@ -75,13 +75,14 @@ export const socialService = {
    * Finds multiple posts with filters
    * Returns posts with author information, likes count, and comments count
    */
-  async findMany(userId: string, filters: PostFilters): Promise<{ posts: any[]; total: number }> {
+  async findMany(userId: string, filters: PostFilters, dbClient?: SupabaseClient<Database>): Promise<{ posts: any[]; total: number }> {
     const { page = 1, limit = 20 } = filters as any;
     const user_id = (filters as any).user_id as string | undefined;
     const offset = (page - 1) * limit;
+    const client = dbClient || supabase;
 
     // Build base query with author profile join and workout details
-    let query = supabase
+    let query = client
       .from('posts')
       .select(`
         *,
@@ -96,7 +97,7 @@ export const socialService = {
     }
 
     // Get total count for pagination
-    const { count } = await supabase
+    const { count } = await client
       .from('posts')
       .select('*', { count: 'exact', head: true })
       .eq('is_public', true);
@@ -113,22 +114,30 @@ export const socialService = {
     // Type assertion for the query result with join
     const postsData = (data || []) as any[];
 
+    // Get list of users followed by current user (use authenticated client)
+    const { data: following } = await client
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', userId);
+
+    const followingIds = new Set((following || []).map(f => f.following_id));
+
     // Enrich posts with author info, likes, and comments count
     const enrichedPosts = await Promise.all(postsData.map(async (post: any) => {
-      // Get likes count
-      const { count: likesCount } = await supabase
+      // Get likes count (use authenticated client)
+      const { count: likesCount } = await client
         .from('post_likes')
         .select('*', { count: 'exact', head: true })
         .eq('post_id', post.id);
 
-      // Get comments count
-      const { count: commentsCount } = await supabase
+      // Get comments count (use authenticated client)
+      const { count: commentsCount } = await client
         .from('post_comments')
         .select('*', { count: 'exact', head: true })
         .eq('post_id', post.id);
 
-      // Check if current user liked this post
-      const { data: userLike } = await supabase
+      // Check if current user liked this post (use authenticated client)
+      const { data: userLike } = await client
         .from('post_likes')
         .select('id')
         .eq('post_id', post.id)
@@ -151,12 +160,14 @@ export const socialService = {
           username: post.profiles.username,
           fullName: post.profiles.full_name,
           avatar: post.profiles.avatar_url,
+          isFollowing: followingIds.has(post.profiles.id),
         } : {
           // Fallback when profile is missing
           id: post.user_id,
           username: 'Usuario',
           fullName: 'Usuario',
           avatar: null,
+          isFollowing: false,
         },
         likesCount: likesCount || 0,
         commentsCount: commentsCount || 0,
@@ -216,6 +227,14 @@ export const socialService = {
       .eq('user_id', userId)
       .maybeSingle();
 
+    // Check if current user follows the author
+    const { data: followStatus } = await supabase
+      .from('follows')
+      .select('id')
+      .eq('follower_id', userId)
+      .eq('following_id', postData.user_id)
+      .maybeSingle();
+
     return {
       id: postData.id,
       content: postData.content,
@@ -231,6 +250,7 @@ export const socialService = {
         username: postData.profiles.username,
         fullName: postData.profiles.full_name,
         avatar: postData.profiles.avatar_url,
+        isFollowing: !!followStatus,
       } : null,
       likesCount: likesCount || 0,
       commentsCount: commentsCount || 0,
@@ -481,7 +501,7 @@ export const socialService = {
     const commentsWithReplies = await Promise.all((comments || []).map(async (comment) => {
       // Explicitly cast comment to match expected structure with profile
       const commentWithProfile = comment as CommentWithProfile;
-      
+
       const { data: replies } = await supabase
         .from('post_comments')
         .select(`
@@ -624,7 +644,7 @@ export const socialService = {
    */
   async repostPost(postId: string, userId: string, dbClient?: SupabaseClient<Database>): Promise<{ reposted: boolean }> {
     const client = dbClient || supabase;
-    
+
     // First check if the repost already exists
     const { data: existingRepost, error: checkError } = await client
       .from('post_reposts')

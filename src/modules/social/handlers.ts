@@ -126,10 +126,11 @@ export const socialHandlers = {
     const user = getUserFromCtx(c);
     const filters = c.get('validated') as PostFilters;
     const { page = 1, limit = 20 } = filters as any;
+    const supabase = c.get('supabase'); // Get authenticated client
 
     try {
       // Find posts matching the filters with author info and pagination
-      const result = await socialService.findMany(user.id, filters);
+      const result = await socialService.findMany(user.id, filters, supabase);
 
       // Format response with pagination
       return c.json({
