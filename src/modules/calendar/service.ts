@@ -11,7 +11,7 @@ function toISODate(date: Date) {
 }
 
 export const calendarService = {
-  async addWorkout(userId: string, workoutId: string, dateStr: string, dbClient?: SupabaseClient) {
+  async addWorkout(userId: string, workoutId: string, dateStr: string, annotations?: string | null, dbClient?: SupabaseClient) {
     // Use provided client or admin client to ensure visibility
     // Ideally use authenticated client to check user's access, but admin allows cross-checks if needed
     const client = dbClient || supabaseAdmin;
@@ -30,6 +30,7 @@ export const calendarService = {
       user_id: userId,
       workout_id: workoutId,
       scheduled_date: dateStr,
+      annotations: annotations === '' || annotations === null || annotations === undefined ? null : annotations,
     } as any;
 
     const { data, error } = await client.from('scheduled_workouts').insert(payload).select('*').single();
@@ -86,11 +87,15 @@ export const calendarService = {
     return data || [];
   },
 
-  async updateScheduled(id: string, userId: string, updates: { scheduled_date?: string; status?: string }, dbClient?: SupabaseClient) {
+  async updateScheduled(id: string, userId: string, updates: { scheduled_date?: string; status?: string; annotations?: string | null }, dbClient?: SupabaseClient) {
     const client = dbClient || supabase;
     const payload: any = {};
     if (updates.scheduled_date) payload.scheduled_date = updates.scheduled_date;
     if (updates.status) payload.status = updates.status;
+    // Handle annotations: if undefined, don't update; if null or empty string, set to null
+    if (updates.annotations !== undefined) {
+      payload.annotations = updates.annotations === '' || updates.annotations === null ? null : updates.annotations;
+    }
 
     const { data, error } = await client
       .from('scheduled_workouts')

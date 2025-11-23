@@ -9,7 +9,6 @@ export const settingsSchemas = {
   updateNotifications: z.object({
     email: z.boolean().optional(),
     push: z.boolean().optional(),
-    sms: z.boolean().optional(),
   }),
   updatePrivacy: z.object({
     profileVisibility: z.enum(['public', 'friends', 'private']).optional(),

@@ -194,9 +194,151 @@ export const socialService = {
       };
     }));
 
+    // Also fetch reposts from all users (not just current user)
+    // Get all reposts (we'll combine with posts and paginate together)
+    const { data: allReposts, error: repostsError } = await client
+      .from('post_reposts')
+      .select(`
+        id,
+        original_post_id,
+        reposted_at,
+        reposted_by_user_id
+      `)
+      .order('reposted_at', { ascending: false });
+
+    // Process reposts if available (ignore errors, just log them)
+    const processedReposts: any[] = [];
+    if (!repostsError && allReposts && allReposts.length > 0) {
+      // Get original posts for reposts
+      const originalPostIds = [...new Set(allReposts.map((r: any) => r.original_post_id))];
+      
+      const { data: originalPostsData, error: postsError } = await client
+        .from('posts')
+        .select(`
+          *,
+          profiles!posts_user_id_fkey(id, username, full_name, avatar_url),
+          workouts(id, name, description, difficulty, duration_minutes)
+        `)
+        .in('id', originalPostIds)
+        .eq('is_public', true);
+
+      if (!postsError && originalPostsData) {
+        const postsById = new Map(originalPostsData.map((p: any) => [p.id, p]));
+        
+        // Get reposter profiles
+        const reposterIds = [...new Set(allReposts.map((r: any) => r.reposted_by_user_id))];
+        const { data: reposterProfiles } = await client
+          .from('profiles')
+          .select('id, username, full_name, avatar_url')
+          .in('id', reposterIds);
+
+        const profilesById = new Map((reposterProfiles || []).map((p: any) => [p.id, p]));
+
+        for (const repost of allReposts) {
+          const originalPost = postsById.get(repost.original_post_id);
+          if (!originalPost) continue; // Skip if original post not found or not public
+
+          // Get likes and comments count for original post
+          const { count: likesCount } = await client
+            .from('post_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', originalPost.id);
+
+          const { count: commentsCount } = await client
+            .from('post_comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', originalPost.id);
+
+          const { data: userLike } = await client
+            .from('post_likes')
+            .select('id')
+            .eq('post_id', originalPost.id)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          const reposterProfile = profilesById.get(repost.reposted_by_user_id);
+
+          processedReposts.push({
+            id: `repost-${repost.id}`,
+            content: '',
+            image_urls: [],
+            hashtags: [],
+            workout_id: originalPost.workout_id,
+            workout: originalPost.workouts,
+            is_public: true,
+            createdAt: repost.reposted_at,
+            updatedAt: repost.reposted_at,
+            userId: originalPost.user_id,
+            isRepost: true,
+            repostedBy: reposterProfile ? {
+              id: reposterProfile.id,
+              username: reposterProfile.username,
+              fullName: reposterProfile.full_name,
+              avatar: reposterProfile.avatar_url,
+            } : {
+              id: repost.reposted_by_user_id,
+              username: 'Usuario',
+              fullName: 'Usuario',
+              avatar: null,
+            },
+            repostedAt: repost.reposted_at,
+            originalPost: {
+              id: originalPost.id,
+              content: originalPost.content,
+              image_urls: originalPost.image_urls || [],
+              hashtags: originalPost.hashtags || [],
+              workout_id: originalPost.workout_id,
+              workout: originalPost.workouts,
+              is_public: originalPost.is_public ?? true,
+              createdAt: originalPost.created_at,
+              updatedAt: originalPost.updated_at,
+              userId: originalPost.user_id,
+              author: originalPost.profiles ? {
+                id: originalPost.profiles.id,
+                username: originalPost.profiles.username,
+                fullName: originalPost.profiles.full_name,
+                avatar: originalPost.profiles.avatar_url,
+                isFollowing: followingIds.has(originalPost.profiles.id),
+              } : {
+                id: originalPost.user_id,
+                username: 'Usuario',
+                fullName: 'Usuario',
+                avatar: null,
+                isFollowing: false,
+              },
+              likesCount: likesCount || 0,
+              commentsCount: commentsCount || 0,
+              isLiked: !!userLike,
+              reposts_count: originalPost.reposts_count || 0,
+            },
+            likesCount: likesCount || 0,
+            commentsCount: commentsCount || 0,
+            isLiked: !!userLike,
+          });
+        }
+      }
+    }
+
+    // Combine posts and reposts, then sort by reposts_count (desc) and date (newest first)
+    const combined = [...enrichedPosts, ...processedReposts];
+    const sorted = combined.sort((a, b) => {
+      const countA = (a.isRepost && a.originalPost ? a.originalPost.reposts_count : a.reposts_count) || 0;
+      const countB = (b.isRepost && b.originalPost ? b.originalPost.reposts_count : b.reposts_count) || 0;
+      if (countA !== countB) {
+        return countB - countA;
+      }
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Return paginated combined results
+    const paginatedResults = sorted.slice(offset, offset + limit);
+    const totalCombined = combined.length;
+
     return {
-      posts: enrichedPosts,
-      total: totalCount,
+      posts: paginatedResults,
+      total: totalCombined,
     };
   },
 

@@ -270,8 +270,10 @@ export const workoutService = {
 
   /**
    * Updates a workout
+   * Also handles updating exercises if provided
    */
-  async update(id: string, userId: string, data: UpdateWorkoutData): Promise<Unified.Workout> {
+  async update(id: string, userId: string, data: UpdateWorkoutData, dbClient?: SupabaseClient): Promise<Unified.Workout> {
+    const client = dbClient || supabaseAdmin;
     const updateData: any = {};
 
     if (data.name !== undefined) updateData.name = data.name;
@@ -288,9 +290,36 @@ export const workoutService = {
     if (data.equipment_required !== undefined) updateData.equipment_required = data.equipment_required;
     if (data.user_notes !== undefined) updateData.user_notes = data.user_notes;
 
-    const { data: updated, error } = await updateRow('workouts', updateData, (q) =>
-      q.eq('id', id).eq('user_id', userId)
-    );
+    // First verify ownership
+    const { data: existingWorkout, error: fetchError } = await client
+      .from('workouts')
+      .select('id, user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        throw new AppError(ErrorCode.NOT_FOUND, 'Workout not found');
+      }
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to verify workout: ${fetchError.message}`);
+    }
+
+    if (!existingWorkout) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Workout not found');
+    }
+
+    if (existingWorkout.user_id !== userId) {
+      throw new AppError(ErrorCode.FORBIDDEN, 'You can only update your own workouts');
+    }
+
+    // Update workout metadata
+    const { data: updated, error } = await client
+      .from('workouts')
+      .update(updateData)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
 
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update workout: ${error.message}`);
@@ -300,14 +329,96 @@ export const workoutService = {
       throw new AppError(ErrorCode.NOT_FOUND, 'Workout not found or access denied');
     }
 
-    return mapWorkoutRowToWorkout(updated);
+    // Update exercises if provided
+    if (data.exercises && Array.isArray(data.exercises)) {
+      // Delete existing exercises
+      const { error: deleteError } = await client
+        .from('workout_exercises')
+        .delete()
+        .eq('workout_id', id);
+
+      if (deleteError) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to delete existing exercises: ${deleteError.message}`);
+      }
+
+      // Insert new exercises
+      if (data.exercises.length > 0) {
+        for (let i = 0; i < data.exercises.length; i++) {
+          const ex = data.exercises[i];
+          const exerciseData: any = {
+            workout_id: id,
+            exercise_id: ex.exercise_id,
+            order_index: i,
+            sets: ex.sets,
+            reps: ex.reps,
+            weight_kg: ex.weight || null,
+            rest_seconds: 60, // Default rest time
+          };
+
+          const { error: exerciseError } = await client
+            .from('workout_exercises')
+            .insert(exerciseData as any);
+
+          if (exerciseError) {
+            console.error('Database Error adding exercise:', JSON.stringify(exerciseError, null, 2));
+            throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to add exercise to workout: ${exerciseError.message}`);
+          }
+        }
+      }
+    }
+
+    // Fetch updated workout with exercises
+    const { data: finalWorkout, error: finalError } = await client
+      .from('workouts')
+      .select(`
+        *,
+        workout_exercises (
+          *,
+          exercise:exercises (*)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (finalError) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to fetch updated workout: ${finalError.message}`);
+    }
+
+    return mapWorkoutRowToWorkout(finalWorkout);
   },
 
   /**
    * Deletes a workout
+   * Only the owner (creator) can delete their workout
    */
   async delete(id: string, userId: string, dbClient?: SupabaseClient): Promise<boolean> {
     const client = dbClient || supabaseAdmin;
+    
+    // First, verify that the workout exists and belongs to the user
+    const { data: workout, error: fetchError } = await client
+      .from('workouts')
+      .select('id, user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        // Workout not found
+        return false;
+      }
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to verify workout: ${fetchError.message}`);
+    }
+
+    if (!workout) {
+      return false;
+    }
+
+    // Verify ownership - only the creator can delete
+    if (workout.user_id !== userId) {
+      throw new AppError(ErrorCode.FORBIDDEN, 'You can only delete your own workouts');
+    }
+
+    // Delete the workout
     const { error } = await client.from('workouts').delete().eq('id', id).eq('user_id', userId);
 
     if (error) {

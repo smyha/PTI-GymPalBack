@@ -12,13 +12,14 @@ export const calendarHandlers = {
     const supabase = c.get('supabase');
 
     try {
-      const scheduled: any = await calendarService.addWorkout(user.id, data.workout_id, data.date, supabase);
+      const scheduled: any = await calendarService.addWorkout(user.id, data.workout_id, data.date, data.annotations, supabase);
       logger.info({ userId: user.id, workoutId: data.workout_id, date: data.date }, 'Workout scheduled');
       // Return a consistent AddWorkoutResponse shape
       const payload = {
         workoutId: scheduled.workout_id || scheduled.workoutId || data.workout_id,
         date: scheduled.scheduled_date || data.date,
         id: scheduled.id,
+        annotations: scheduled.annotations || null,
       } as any;
       return sendCreated(c, payload);
     } catch (err: any) {
@@ -45,6 +46,7 @@ export const calendarHandlers = {
         workoutName: row.workouts?.name || null,
         workout: row.workouts, // Include full workout details
         exerciseCount: Array.isArray(row.workouts?.exercises) ? row.workouts.exercises.length : undefined,
+        annotations: row.annotations || null,
       }));
 
       const resp: any = {

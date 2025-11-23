@@ -14,6 +14,7 @@ import { logger } from '../../core/config/logger.js';
 import { sendSuccess, sendUpdated } from '../../core/utils/response.js';
 import type { UpdateSettingsData, UpdateNotificationSettingsData, UpdatePrivacySettingsData } from './types.js';
 import { getUserFromCtx } from '../../core/utils/context.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Object containing all handlers for the settings module.
@@ -34,12 +35,13 @@ export const settingsHandlers = {
    * // Response: { success: true, data: { general: {...}, notifications: {...}, ... } }
    */
   async getSettings(c: Context) {
-    // Get authenticated user
+    // Get authenticated user and Supabase client
     const user = getUserFromCtx(c);
+    const supabase = c.get('supabase') as SupabaseClient;
     
     try {
-      // Get all settings from service
-      const settings = await settingsService.getSettings(user.id);
+      // Get all settings from service using authenticated client
+      const settings = await settingsService.getSettings(user.id, supabase);
       
       // Log success
       logger.info({ userId: user.id }, 'Settings retrieved');
@@ -68,13 +70,14 @@ export const settingsHandlers = {
    * // Response: { success: true, data: { ...updatedSettings } }
    */
   async updateSettings(c: Context) {
-    // Get authenticated user and validated update data
+    // Get authenticated user, validated update data, and Supabase client
     const user = getUserFromCtx(c);
     const data = c.get('validated') as UpdateSettingsData;
+    const supabase = c.get('supabase') as SupabaseClient;
     
     try {
-      // Update settings in service
-      const settings = await settingsService.updateSettings(user.id, data);
+      // Update settings in service using authenticated client
+      const settings = await settingsService.updateSettings(user.id, data, supabase);
       
       // Log success
       logger.info({ userId: user.id }, 'Settings updated');
@@ -102,12 +105,13 @@ export const settingsHandlers = {
    * // Response: { success: true, data: { email: true, push: false, reminders: {...}, ... } }
    */
   async getNotificationSettings(c: Context) {
-    // Get authenticated user
+    // Get authenticated user and Supabase client
     const user = getUserFromCtx(c);
+    const supabase = c.get('supabase') as SupabaseClient;
     
     try {
-      // Get notification settings from service
-      const settings = await settingsService.getNotificationSettings(user.id);
+      // Get notification settings from service using authenticated client
+      const settings = await settingsService.getNotificationSettings(user.id, supabase);
       
       // Log success
       logger.info({ userId: user.id }, 'Notification settings retrieved');
@@ -137,13 +141,14 @@ export const settingsHandlers = {
    * // Response: { success: true, data: { ...updatedNotificationSettings } }
    */
   async updateNotificationSettings(c: Context) {
-    // Get authenticated user and validated update data
+    // Get authenticated user, validated update data, and Supabase client
     const user = getUserFromCtx(c);
     const data = c.get('validated') as UpdateNotificationSettingsData;
+    const supabase = c.get('supabase') as SupabaseClient;
     
     try {
-      // Update notification settings in service
-      const settings = await settingsService.updateNotificationSettings(user.id, data);
+      // Update notification settings in service using authenticated client
+      const settings = await settingsService.updateNotificationSettings(user.id, data, supabase);
       
       // Log success
       logger.info({ userId: user.id }, 'Notification settings updated');
@@ -171,12 +176,13 @@ export const settingsHandlers = {
    * // Response: { success: true, data: { profile_visibility: "public", ... } }
    */
   async getPrivacySettings(c: Context) {
-    // Get authenticated user
+    // Get authenticated user and Supabase client
     const user = getUserFromCtx(c);
+    const supabase = c.get('supabase') as SupabaseClient;
     
     try {
-      // Get privacy settings from service
-      const settings = await settingsService.getPrivacySettings(user.id);
+      // Get privacy settings from service using authenticated client
+      const settings = await settingsService.getPrivacySettings(user.id, supabase);
       
       // Log success
       logger.info({ userId: user.id }, 'Privacy settings retrieved');
@@ -205,13 +211,14 @@ export const settingsHandlers = {
    * // Response: { success: true, data: { ...updatedPrivacySettings } }
    */
   async updatePrivacySettings(c: Context) {
-    // Get authenticated user and validated update data
+    // Get authenticated user, validated update data, and Supabase client
     const user = getUserFromCtx(c);
     const data = c.get('validated') as UpdatePrivacySettingsData;
+    const supabase = c.get('supabase') as SupabaseClient;
     
     try {
-      // Update privacy settings in service
-      const settings = await settingsService.updatePrivacySettings(user.id, data);
+      // Update privacy settings in service using authenticated client
+      const settings = await settingsService.updatePrivacySettings(user.id, data, supabase);
       
       // Log success
       logger.info({ userId: user.id }, 'Privacy settings updated');

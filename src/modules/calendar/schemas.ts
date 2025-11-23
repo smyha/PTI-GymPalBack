@@ -4,6 +4,7 @@ export const calendarSchemas = {
   addWorkout: z.object({
     workout_id: z.string().uuid(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    annotations: z.string().nullable().optional(),
   }),
 
   getCalendar: z.object({
@@ -13,6 +14,7 @@ export const calendarSchemas = {
   updateScheduled: z.object({
     scheduled_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     status: z.string().optional(),
+    annotations: z.string().nullable().optional(),
   }),
 };
 

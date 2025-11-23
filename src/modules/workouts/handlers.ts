@@ -159,10 +159,11 @@ export const workoutHandlers = {
     const user = getUserFromCtx(c);
     const { id } = c.get('validated') as { id: string };
     const data = c.get('validated') as UpdateWorkoutData;
+    const supabase = c.get('supabase');
 
     try {
-      // Update workout, verifying ownership
-      const workout = await workoutService.update(id, user.id, data);
+      // Update workout, verifying ownership and passing authenticated client
+      const workout = await workoutService.update(id, user.id, data, supabase);
 
       // If it doesn't exist, return 404 error
       if (!workout) {
@@ -176,7 +177,7 @@ export const workoutHandlers = {
       return sendUpdated(c, workout);
     } catch (error: any) {
       // Handle authorization errors
-      if (error.message?.includes('Not authorized')) {
+      if (error.message?.includes('Not authorized') || error.message?.includes('can only update')) {
         return sendForbidden(c, error.message);
       }
       // Log other errors
