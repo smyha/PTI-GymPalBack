@@ -40,6 +40,7 @@ export const socialSchemas = {
   listPosts: z.object({
     page: z.string().transform(Number).default('1'),
     limit: z.string().transform(Number).default('20'),
+    sort: z.enum(['popular', 'recent']).optional().default('popular'),
   }),
 
   params: z.object({

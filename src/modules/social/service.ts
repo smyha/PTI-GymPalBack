@@ -95,7 +95,7 @@ export const socialService = {
    * Returns posts with author information, likes count, and comments count
    */
   async findMany(userId: string, filters: PostFilters, dbClient?: SupabaseClient<Database>): Promise<{ posts: any[]; total: number }> {
-    const { page = 1, limit = 20 } = filters as any;
+    const { page = 1, limit = 20, sort = 'popular' } = filters as any;
     const user_id = (filters as any).user_id as string | undefined;
     const offset = (page - 1) * limit;
     const client = dbClient || supabase;
@@ -141,7 +141,7 @@ export const socialService = {
 
     const followingIds = new Set((following || []).map(f => f.following_id));
 
-    // Enrich posts with author info, likes, and comments count
+    // Enrich posts with author info, likes, comments, and reposts count
     const enrichedPosts = await Promise.all(postsData.map(async (post: any) => {
       // Get likes count (use authenticated client)
       const { count: likesCount } = await client
@@ -154,6 +154,12 @@ export const socialService = {
         .from('post_comments')
         .select('*', { count: 'exact', head: true })
         .eq('post_id', post.id);
+
+      // Get reposts count (use authenticated client)
+      const { count: repostsCount } = await client
+        .from('post_reposts')
+        .select('*', { count: 'exact', head: true })
+        .eq('original_post_id', post.id);
 
       // Check if current user liked this post (use authenticated client)
       const { data: userLike } = await client
@@ -190,6 +196,7 @@ export const socialService = {
         },
         likesCount: likesCount || 0,
         commentsCount: commentsCount || 0,
+        reposts_count: repostsCount || 0,
         isLiked: !!userLike,
       };
     }));
@@ -258,6 +265,12 @@ export const socialService = {
 
           const reposterProfile = profilesById.get(repost.reposted_by_user_id);
 
+          // Get reposts count for original post
+          const { count: originalRepostsCount } = await client
+            .from('post_reposts')
+            .select('*', { count: 'exact', head: true })
+            .eq('original_post_id', originalPost.id);
+
           processedReposts.push({
             id: `repost-${repost.id}`,
             content: '',
@@ -308,28 +321,47 @@ export const socialService = {
               },
               likesCount: likesCount || 0,
               commentsCount: commentsCount || 0,
+              reposts_count: originalRepostsCount || 0,
               isLiked: !!userLike,
-              reposts_count: originalPost.reposts_count || 0,
             },
             likesCount: likesCount || 0,
             commentsCount: commentsCount || 0,
+            reposts_count: originalRepostsCount || 0,
             isLiked: !!userLike,
           });
         }
       }
     }
 
-    // Combine posts and reposts, then sort by reposts_count (desc) and date (newest first)
+    // Combine posts and reposts, then sort according to filter
     const combined = [...enrichedPosts, ...processedReposts];
     const sorted = combined.sort((a, b) => {
-      const countA = (a.isRepost && a.originalPost ? a.originalPost.reposts_count : a.reposts_count) || 0;
-      const countB = (b.isRepost && b.originalPost ? b.originalPost.reposts_count : b.reposts_count) || 0;
-      if (countA !== countB) {
-        return countB - countA;
+      if (sort === 'popular') {
+        // Sort by popularity: likes + comments + reposts (descending)
+        const getRepostsCount = (post: any) => {
+          if (post.isRepost && post.originalPost) {
+            return post.originalPost.reposts_count || 0;
+          }
+          return post.reposts_count || 0;
+        };
+
+        const popularityA = (a.likesCount || 0) + (a.commentsCount || 0) + getRepostsCount(a);
+        const popularityB = (b.likesCount || 0) + (b.commentsCount || 0) + getRepostsCount(b);
+
+        if (popularityA !== popularityB) {
+          return popularityB - popularityA; // Descending order
+        }
+
+        // If popularity is equal, sort by date (newest first)
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      } else {
+        // Sort by recent: date (newest first)
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
       }
-      const dateA = new Date(a.createdAt || 0).getTime();
-      const dateB = new Date(b.createdAt || 0).getTime();
-      return dateB - dateA;
     });
 
     // Return paginated combined results

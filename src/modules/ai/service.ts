@@ -156,8 +156,9 @@ export const aiService = {
         }
 
         // If still no conversation, create one
+        // Use supabaseAdmin to bypass RLS and ensure conversation is created
         if (!targetConversationId) {
-           const { data: newConv, error: convError } = await db
+           const { data: newConv, error: convError } = await supabaseAdmin
              .from('ai_conversations')
              .insert({
                user_id: userId,
@@ -167,7 +168,7 @@ export const aiService = {
              .single();
            
            if (convError) {
-             logger.error({ error: convError }, 'Error creating conversation');
+             logger.error({ error: convError, userId }, 'Error creating conversation');
            } else {
              targetConversationId = newConv?.id;
            }
@@ -175,18 +176,27 @@ export const aiService = {
 
         if (targetConversationId) {
           // 2. Save User Message
-          await db.from('ai_messages').insert({
+          // Use supabaseAdmin to bypass RLS and ensure messages are saved
+          const { error: userMsgError } = await supabaseAdmin.from('ai_messages').insert({
             conversation_id: targetConversationId,
             role: 'user',
             content: text
           } as any);
 
+          if (userMsgError) {
+            logger.error({ error: userMsgError, conversationId: targetConversationId }, 'Error saving user message');
+          }
+
           // 3. Save Assistant Message
-          await db.from('ai_messages').insert({
+          const { error: assistantMsgError } = await supabaseAdmin.from('ai_messages').insert({
             conversation_id: targetConversationId,
             role: 'assistant',
             content: responseText
           } as any);
+
+          if (assistantMsgError) {
+            logger.error({ error: assistantMsgError, conversationId: targetConversationId }, 'Error saving assistant message');
+          }
         }
 
       } catch (persistError) {

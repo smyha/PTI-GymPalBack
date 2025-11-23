@@ -433,5 +433,37 @@ workoutRoutes.get(
   workoutHandlers.getCurrentStreak
 );
 
+/**
+ * Handler: Create exercise set logs (batch)
+ *
+ * Endpoint: POST /api/v1/workouts/set-logs
+ */
+workoutRoutes.post(
+  '/set-logs',
+  validate(workoutSchemas.createSetLogs, 'body'),
+  workoutHandlers.createSetLogs
+);
+
+/**
+ * Handler: Get set logs for a session or scheduled workout
+ *
+ * Endpoint: GET /api/v1/workouts/set-logs?session_id=...&scheduled_workout_id=...
+ */
+workoutRoutes.get(
+  '/set-logs',
+  workoutHandlers.getSetLogs
+);
+
+/**
+ * Handler: Get progress statistics for charts
+ *
+ * Endpoint: GET /api/v1/workouts/progress/stats?period=week|month|year|all&exercise_id=...
+ */
+workoutRoutes.get(
+  '/progress/stats',
+  validate(workoutSchemas.getProgressStats, 'query'),
+  workoutHandlers.getProgressStats
+);
+
 export default workoutRoutes;
 

@@ -366,4 +366,62 @@ export const workoutHandlers = {
         throw error;
       }
     },
+
+    /**
+     * Create exercise set logs (batch)
+     */
+    async createSetLogs(c: Context) {
+      const user = getUserFromCtx(c);
+      const data = c.get('validated') as any[];
+      const supabase = c.get('supabase');
+
+      try {
+        const logs = await workoutService.createSetLogs(user.id, data, supabase);
+        logger.info({ userId: user.id, logCount: logs.length }, 'Set logs created');
+        return sendCreated(c, { logs });
+      } catch (error: any) {
+        logger.error({ error, userId: user.id }, 'Failed to create set logs');
+        throw error;
+      }
+    },
+
+    /**
+     * Get set logs for a session or scheduled workout
+     */
+    async getSetLogs(c: Context) {
+      const user = getUserFromCtx(c);
+      const sessionId = c.req.query('session_id');
+      const scheduledWorkoutId = c.req.query('scheduled_workout_id');
+      const supabase = c.get('supabase');
+
+      try {
+        const logs = await workoutService.getSetLogs(sessionId, scheduledWorkoutId, supabase);
+        return sendSuccess(c, { logs });
+      } catch (error: any) {
+        logger.error({ error, userId: user.id }, 'Failed to get set logs');
+        throw error;
+      }
+    },
+
+    /**
+     * Get progress statistics for charts
+     */
+    async getProgressStats(c: Context) {
+      const user = getUserFromCtx(c);
+      const { period, exercise_id } = c.get('validated') as { period: string; exercise_id?: string };
+      const supabase = c.get('supabase');
+
+      try {
+        const stats = await workoutService.getProgressStats(
+          user.id,
+          period as 'week' | 'month' | 'year' | 'all',
+          exercise_id,
+          supabase
+        );
+        return sendSuccess(c, stats);
+      } catch (error: any) {
+        logger.error({ error, userId: user.id }, 'Failed to get progress stats');
+        throw error;
+      }
+    },
 };

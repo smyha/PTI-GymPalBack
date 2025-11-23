@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS post_likes CASCADE;
 DROP TABLE IF EXISTS posts CASCADE;
 DROP TABLE IF EXISTS follows CASCADE;
 DROP TABLE IF EXISTS shared_workouts CASCADE;
+DROP TABLE IF EXISTS exercise_set_logs CASCADE;
 DROP TABLE IF EXISTS workout_sessions CASCADE;
 DROP TABLE IF EXISTS workout_exercises CASCADE;
 DROP TABLE IF EXISTS exercises CASCADE;
@@ -185,6 +186,25 @@ CREATE TABLE workout_sessions (
     calories_burned INTEGER CHECK (calories_burned >= 0 AND calories_burned <= 10000),
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Exercise set logs (detailed tracking data for each exercise set performed during workouts)
+CREATE TABLE exercise_set_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workout_session_id UUID REFERENCES workout_sessions(id) ON DELETE CASCADE,
+    scheduled_workout_id UUID REFERENCES scheduled_workouts(id) ON DELETE CASCADE,
+    exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    set_number INTEGER NOT NULL CHECK (set_number > 0),
+    weight_kg NUMERIC CHECK (weight_kg >= 0 AND weight_kg <= 1000),
+    reps_completed INTEGER CHECK (reps_completed >= 0 AND reps_completed <= 1000),
+    completed BOOLEAN DEFAULT true,
+    rpe INTEGER CHECK (rpe >= 1 AND rpe <= 10),
+    rir INTEGER CHECK (rir >= 0 AND rir <= 20),
+    failure BOOLEAN DEFAULT false,
+    rest_seconds INTEGER CHECK (rest_seconds >= 0 AND rest_seconds <= 3600),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Scheduled workouts (calendar entries)
@@ -358,6 +378,12 @@ CREATE INDEX idx_workout_sessions_user_id ON workout_sessions(user_id);
 CREATE INDEX idx_workout_sessions_workout_id ON workout_sessions(workout_id);
 CREATE INDEX idx_workout_sessions_started_at ON workout_sessions(started_at);
 
+-- Exercise set logs indexes
+CREATE INDEX idx_exercise_set_logs_workout_session_id ON exercise_set_logs(workout_session_id);
+CREATE INDEX idx_exercise_set_logs_scheduled_workout_id ON exercise_set_logs(scheduled_workout_id);
+CREATE INDEX idx_exercise_set_logs_exercise_id ON exercise_set_logs(exercise_id);
+CREATE INDEX idx_exercise_set_logs_created_at ON exercise_set_logs(created_at);
+
 -- Shared workouts indexes
 CREATE INDEX idx_shared_workouts_original ON shared_workouts(original_workout_id);
 CREATE INDEX idx_shared_workouts_shared_by ON shared_workouts(shared_by_user_id);
@@ -415,6 +441,7 @@ CREATE TRIGGER update_user_fitness_profile_updated_at BEFORE UPDATE ON user_fitn
 CREATE TRIGGER update_user_dietary_preferences_updated_at BEFORE UPDATE ON user_dietary_preferences FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_exercises_updated_at BEFORE UPDATE ON exercises FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_workouts_updated_at BEFORE UPDATE ON workouts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_exercise_set_logs_updated_at BEFORE UPDATE ON exercise_set_logs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_post_comments_updated_at BEFORE UPDATE ON post_comments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

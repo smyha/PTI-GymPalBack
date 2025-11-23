@@ -6,6 +6,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { insertRow, selectRow, selectRows, updateRow } from '../../core/config/database-helpers.js';
 import { supabase, supabaseAdmin } from '../../core/config/database.js';
+import { logger } from '../../core/config/logger.js';
 import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 import type * as Unified from '../../core/types/unified.types.js';
 import type { CreateWorkoutData, UpdateWorkoutData, WorkoutFilters } from './types.js';
@@ -713,5 +714,237 @@ export const workoutService = {
 
     return streak;
   },
+
+  /**
+   * Create exercise set logs (batch)
+   */
+  async createSetLogs(userId: string, logs: any[], dbClient?: SupabaseClient): Promise<any[]> {
+    const client = dbClient || supabaseAdmin;
+    
+    // Validate that user owns the session or scheduled workout
+    for (const log of logs) {
+      if (log.workout_session_id) {
+        const { data: session } = await selectRow('workout_sessions', log.workout_session_id, client);
+        if (!session || session.user_id !== userId) {
+          throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to log sets for this session');
+        }
+      }
+      if (log.scheduled_workout_id) {
+        const { data: scheduled } = await selectRow('scheduled_workouts', log.scheduled_workout_id, client);
+        if (!scheduled || scheduled.user_id !== userId) {
+          throw new AppError(ErrorCode.FORBIDDEN, 'You do not have permission to log sets for this scheduled workout');
+        }
+      }
+    }
+
+    const createdLogs = [];
+    for (const log of logs) {
+      // Use client directly since exercise_set_logs is not in the TypeScript types yet
+      const { data, error } = await (client as any)
+        .from('exercise_set_logs')
+        .insert(log)
+        .select()
+        .single();
+      if (error) throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create set log: ${error.message}`);
+      createdLogs.push(data);
+    }
+
+    return createdLogs;
+  },
+
+  /**
+   * Get set logs for a workout session or scheduled workout
+   */
+  async getSetLogs(sessionId?: string, scheduledWorkoutId?: string, dbClient?: SupabaseClient): Promise<any[]> {
+    const client = dbClient || supabaseAdmin;
+    
+    // Use client directly since exercise_set_logs is not in the TypeScript types yet
+    let query = (client as any).from('exercise_set_logs').select('*');
+    
+    if (sessionId) {
+      query = query.eq('workout_session_id', sessionId);
+    } else if (scheduledWorkoutId) {
+      query = query.eq('scheduled_workout_id', scheduledWorkoutId);
+    } else {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Either session_id or scheduled_workout_id must be provided');
+    }
+
+    const { data, error } = await query.order('set_number', { ascending: true });
+    
+    if (error) throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get set logs: ${error.message}`);
+    return data || [];
+  },
+
+  /**
+   * Get progress statistics for charts
+   */
+  async getProgressStats(userId: string, period: 'week' | 'month' | 'year' | 'all' = 'month', exerciseId?: string, dbClient?: SupabaseClient): Promise<any> {
+    const client = dbClient || supabaseAdmin;
+    
+    // Calculate date range
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (period) {
+      case 'week':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'year':
+        startDate = new Date(now);
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        startDate = new Date(0); // All time
+    }
+
+    // Get workout sessions for the user in the period
+    let sessionsQuery = client
+      .from('workout_sessions')
+      .select('id, started_at')
+      .eq('user_id', userId);
+    
+    if (period !== 'all') {
+      sessionsQuery = sessionsQuery.gte('started_at', startDate.toISOString());
+    }
+
+    const { data: sessions, error: sessionsError } = await sessionsQuery;
+    if (sessionsError) throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get sessions: ${sessionsError.message}`);
+
+    // Get completed scheduled workouts for the user in the period
+    let scheduledQuery = client
+      .from('scheduled_workouts')
+      .select('id, scheduled_date, created_at')
+      .eq('user_id', userId)
+      .eq('status', 'completed');
+    
+    if (period !== 'all') {
+      scheduledQuery = scheduledQuery.gte('scheduled_date', startDate.toISOString().split('T')[0]);
+    }
+
+    const { data: scheduledWorkouts, error: scheduledError } = await scheduledQuery;
+    if (scheduledError) throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get scheduled workouts: ${scheduledError.message}`);
+
+    const sessionIds = (sessions || []).map(s => s.id);
+    const scheduledIds = (scheduledWorkouts || []).map(s => s.id);
+
+    // Get set logs from both workout_sessions and scheduled_workouts
+    // use client directly since exercise_set_logs is not in the TypeScript types yet
+    let logs: any[] = [];
+    
+    if (sessionIds.length > 0) {
+      let sessionLogsQuery = (client as any)
+        .from('exercise_set_logs')
+        .select('*, exercise:exercises(name)')
+        .in('workout_session_id', sessionIds);
+      
+      if (exerciseId) {
+        sessionLogsQuery = sessionLogsQuery.eq('exercise_id', exerciseId);
+      }
+      
+      const { data: sessionLogs, error: sessionLogsError } = await sessionLogsQuery;
+      if (sessionLogsError) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get session logs: ${sessionLogsError.message}`);
+      }
+      if (sessionLogs) logs = logs.concat(sessionLogs);
+    }
+    
+    if (scheduledIds.length > 0) {
+      let scheduledLogsQuery = (client as any)
+        .from('exercise_set_logs')
+        .select('*, exercise:exercises(name)')
+        .in('scheduled_workout_id', scheduledIds);
+      
+      if (exerciseId) {
+        scheduledLogsQuery = scheduledLogsQuery.eq('exercise_id', exerciseId);
+      }
+      
+      const { data: scheduledLogs, error: scheduledLogsError } = await scheduledLogsQuery;
+      if (scheduledLogsError) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get scheduled workout logs: ${scheduledLogsError.message}`);
+      }
+      if (scheduledLogs) logs = logs.concat(scheduledLogs);
+    }
+
+    // Group by week/month for workouts count - combine sessions and scheduled workouts
+    const workoutsByPeriod: Record<string, number> = {};
+    
+    // Add sessions
+    (sessions || []).forEach(session => {
+      // Validate started_at is not null before creating Date
+      if (!session.started_at) return;
+      const date = new Date(session.started_at);
+      const key = period === 'week' 
+        ? `${date.getFullYear()}-W${String(getWeekNumber(date)).padStart(2, '0')}`
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      workoutsByPeriod[key] = (workoutsByPeriod[key] || 0) + 1;
+    });
+    
+    // Add scheduled workouts (use scheduled_date or created_at as fallback)
+    (scheduledWorkouts || []).forEach(scheduled => {
+      const dateStr = scheduled.scheduled_date || scheduled.created_at;
+      if (!dateStr) return;
+      // Handle both date strings and timestamps
+      const date = typeof dateStr === 'string' ? new Date(dateStr) : new Date(dateStr);
+      if (isNaN(date.getTime())) return; // Skip invalid dates
+      const key = period === 'week' 
+        ? `${date.getFullYear()}-W${String(getWeekNumber(date)).padStart(2, '0')}`
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      workoutsByPeriod[key] = (workoutsByPeriod[key] || 0) + 1;
+    });
+
+    // Group weight progression by exercise and date
+    const weightProgression: Record<string, any[]> = {};
+    (logs || []).forEach((log: any) => {
+      const exerciseName = log.exercise?.name || log.exercise_id;
+      if (!weightProgression[exerciseName]) {
+        weightProgression[exerciseName] = [];
+      }
+      const date = new Date(log.created_at);
+      const key = period === 'week'
+        ? `${date.getFullYear()}-W${getWeekNumber(date)}`
+        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      
+      const existing = weightProgression[exerciseName].find(e => e.date === key);
+      if (existing) {
+        existing.weight = Math.max(existing.weight, parseFloat(log.weight_kg) || 0);
+        existing.reps = Math.max(existing.reps, log.reps_completed || 0);
+      } else {
+        weightProgression[exerciseName].push({
+          date: key,
+          weight: parseFloat(log.weight_kg) || 0,
+          reps: log.reps_completed || 0,
+        });
+      }
+    });
+
+    // Sort by date
+    Object.keys(weightProgression).forEach(exercise => {
+      weightProgression[exercise].sort((a, b) => a.date.localeCompare(b.date));
+    });
+
+    // Sort workoutsByPeriod by date for proper chart display
+    const sortedWorkoutsByPeriod = Object.entries(workoutsByPeriod)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      workoutsByPeriod: sortedWorkoutsByPeriod,
+      weightProgression,
+    };
+  },
 };
+
+// Helper function to get week number
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
 

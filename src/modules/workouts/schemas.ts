@@ -65,5 +65,41 @@ export const workoutSchemas = {
   streak: z.object({
     date: z.string().optional(),
   }),
+
+  // Exercise Set Logs schemas
+  createSetLog: z.object({
+    workout_session_id: z.string().uuid().optional(),
+    scheduled_workout_id: z.string().uuid().optional(),
+    exercise_id: z.string().uuid(),
+    set_number: z.number().int().min(1),
+    weight_kg: z.number().min(0).max(1000).optional(),
+    reps_completed: z.number().int().min(0).max(1000).optional(),
+    completed: z.boolean().default(true),
+    rpe: z.number().int().min(1).max(10).optional(),
+    rir: z.number().int().min(0).max(20).optional(),
+    failure: z.boolean().default(false),
+    rest_seconds: z.number().int().min(0).max(3600).optional(),
+    notes: z.string().optional(),
+  }),
+
+  createSetLogs: z.array(z.object({
+    workout_session_id: z.string().uuid().optional(),
+    scheduled_workout_id: z.string().uuid().optional(),
+    exercise_id: z.string().uuid(),
+    set_number: z.number().int().min(1),
+    weight_kg: z.number().min(0).max(1000).optional(),
+    reps_completed: z.number().int().min(0).max(1000).optional(),
+    completed: z.boolean().default(true),
+    rpe: z.number().int().min(1).max(10).optional(),
+    rir: z.number().int().min(0).max(20).optional(),
+    failure: z.boolean().default(false),
+    rest_seconds: z.number().int().min(0).max(3600).optional(),
+    notes: z.string().optional(),
+  })),
+
+  getProgressStats: z.object({
+    period: z.enum(['week', 'month', 'year', 'all']).default('month'),
+    exercise_id: z.string().uuid().optional(),
+  }),
 } as const;
 
