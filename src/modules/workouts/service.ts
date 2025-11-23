@@ -216,7 +216,10 @@ export const workoutService = {
     const client = dbClient || supabase;
 
     // Fetch workout with its related exercises
-    // We remove .eq('user_id', userId) to allow fetching any workout the user has access to (via RLS)
+    // Allow fetching workouts that are either:
+    // 1. Owned by the current user (user_id = userId)
+    // 2. Public workouts (is_public = true)
+    // This allows users to view public workouts from other users (e.g., from social posts)
     const { data: workout, error: workoutError } = await client
       .from('workouts')
       .select(`
@@ -227,6 +230,7 @@ export const workoutService = {
         )
       `)
       .eq('id', id)
+      .or(`user_id.eq.${userId},is_public.eq.true`)
       .single();
 
     if (workoutError) {
