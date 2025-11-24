@@ -16,7 +16,13 @@ export const aiService = {
   /**
    * Sends a message to the Reception Agent webhook
    */
-  async sendMessageToAgent(userId: string, text: string, conversationId?: string, agentType: 'reception' | 'data' | 'routine' = 'reception', userSupabase?: SupabaseClient<Database>): Promise<string> {
+  async sendMessageToAgent(
+    userId: string,
+    text: string,
+    conversationId?: string, 
+    agentType: 'reception' | 'data' | 'routine' = 'reception', 
+    userSupabase?: SupabaseClient<Database>): Promise<string> {
+      
     const db = userSupabase || supabase;
     const webhookUrl = agentType === 'data'
       ? env.DATA_AGENT_WEBHOOK_URL
@@ -55,12 +61,20 @@ export const aiService = {
         { algorithm: 'PS512' }
       );
 
-      // Send request to webhook with timeout
+      // Send request to webhook with configurable timeout
+      const timeoutMs = parseInt(env.AGENT_REQUEST_TIMEOUT_MS, 10) || 60000; // Default 60 seconds
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        logger.warn(
+          { userId, agentType, webhookUrl, timeoutMs },
+          `Agent request timeout after ${timeoutMs}ms`
+        );
+      }, timeoutMs);
 
       let response: Response;
       try {
+        const startTime = Date.now();
         response = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
@@ -75,14 +89,28 @@ export const aiService = {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
+        const duration = Date.now() - startTime;
+        logger.debug({ userId, agentType, duration }, 'Agent request completed');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          logger.error({ userId, agentType, webhookUrl }, 'Agent request timeout');
-          throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Agent request timed out. Please try again.');
+        if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
+          logger.error(
+            { userId, agentType, webhookUrl, timeoutMs },
+            `Agent request timed out after ${timeoutMs}ms`
+          );
+          throw new AppError(
+            ErrorCode.EXTERNAL_SERVICE_ERROR,
+            `Agent request timed out after ${Math.round(timeoutMs / 1000)} seconds. The agent may be processing a complex request. Please try again.`
+          );
         }
-        logger.error({ error: fetchError, userId, agentType, webhookUrl }, 'Failed to reach agent webhook');
-        throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `Failed to connect to agent: ${fetchError.message || 'Network error'}`);
+        logger.error(
+          { error: fetchError, userId, agentType, webhookUrl },
+          'Failed to reach agent webhook'
+        );
+        throw new AppError(
+          ErrorCode.EXTERNAL_SERVICE_ERROR,
+          `Failed to connect to agent: ${fetchError.message || 'Network error'}`
+        );
       }
 
       if (!response.ok) {
@@ -140,11 +168,21 @@ export const aiService = {
 
       // --- Start Chat Persistence ---
       try {
+        const persistenceClient = userSupabase || (env.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin : null);
+
+        if (!persistenceClient) {
+          logger.warn(
+            { userId },
+            'Skipping chat persistence because no Supabase client with auth context or service role is available'
+          );
+          return responseText;
+        }
+
         let targetConversationId = conversationId;
 
         // If no conversation ID provided, try to find the latest one or create new
         if (!targetConversationId) {
-          const { data: existingConv } = await supabaseAdmin
+          const { data: existingConv } = await persistenceClient
             .from('ai_conversations')
             .select('id')
             .eq('user_id', userId)
@@ -156,9 +194,8 @@ export const aiService = {
         }
 
         // If still no conversation, create one
-        // Use supabaseAdmin to bypass RLS and ensure conversation is created
         if (!targetConversationId) {
-           const { data: newConv, error: convError } = await supabaseAdmin
+           const { data: newConv, error: convError } = await persistenceClient
              .from('ai_conversations')
              .insert({
                user_id: userId,
@@ -176,8 +213,7 @@ export const aiService = {
 
         if (targetConversationId) {
           // 2. Save User Message
-          // Use supabaseAdmin to bypass RLS and ensure messages are saved
-          const { error: userMsgError } = await supabaseAdmin.from('ai_messages').insert({
+          const { error: userMsgError } = await persistenceClient.from('ai_messages').insert({
             conversation_id: targetConversationId,
             role: 'user',
             content: text
@@ -188,7 +224,7 @@ export const aiService = {
           }
 
           // 3. Save Assistant Message
-          const { error: assistantMsgError } = await supabaseAdmin.from('ai_messages').insert({
+          const { error: assistantMsgError } = await persistenceClient.from('ai_messages').insert({
             conversation_id: targetConversationId,
             role: 'assistant',
             content: responseText

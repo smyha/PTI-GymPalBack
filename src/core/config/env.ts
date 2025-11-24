@@ -57,6 +57,9 @@ const envSchema = z.object({
   RECEPTION_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/receptionAgent'),
   DATA_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/dataAgent'),
   ROUTINE_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/routineAgent'),
+  
+  // AI Agent Configuration
+  AGENT_REQUEST_TIMEOUT_MS: z.string().default('900000'), // 15 minutes default timeout
 });
 
 export const env = envSchema.parse(process.env);
