@@ -179,24 +179,57 @@ CREATE POLICY "Users can delete own exercises" ON exercises
 -- WORKOUTS POLICIES
 -- ============================================================================
 
--- Users can view their own workouts
-CREATE POLICY "Users can view own workouts" ON workouts
-    FOR SELECT USING (auth.uid() = user_id);
+-- Service role should never be blocked (backend calls)
+CREATE POLICY "workouts service role full access" ON workouts
+    FOR ALL
+    USING (auth.role() = 'service_role')
+    WITH CHECK (auth.role() = 'service_role');
 
--- Users can view public workouts
-CREATE POLICY "Public workouts are viewable" ON workouts
-    FOR SELECT USING (is_public = true);
+-- Users can see their own workouts, public ones, or workouts shared with them
+CREATE POLICY "workouts selectable" ON workouts
+    FOR SELECT USING (
+        auth.uid() = user_id
+        OR is_public = true
+        OR EXISTS (
+            SELECT 1 FROM shared_workouts sw
+            WHERE sw.original_workout_id = workouts.id
+              AND (sw.shared_with_user_id = auth.uid() OR sw.shared_by_user_id = auth.uid())
+        )
+    );
 
--- Users can insert workouts
-CREATE POLICY "Users can create workouts" ON workouts
+-- Users can insert their own workouts
+CREATE POLICY "workouts insert own" ON workouts
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Users can update their own workouts
-CREATE POLICY "Users can update own workouts" ON workouts
+CREATE POLICY "workouts update own" ON workouts
     FOR UPDATE USING (auth.uid() = user_id);
 
 -- Users can delete their own workouts
-CREATE POLICY "Users can delete own workouts" ON workouts
+CREATE POLICY "workouts delete own" ON workouts
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- ============================================================================
+-- SCHEDULED WORKOUTS POLICIES
+-- ============================================================================
+
+-- Service role bypass
+CREATE POLICY "scheduled workouts service role full access" ON scheduled_workouts
+    FOR ALL
+    USING (auth.role() = 'service_role')
+    WITH CHECK (auth.role() = 'service_role');
+
+-- Users can manage their own scheduled workouts
+CREATE POLICY "scheduled workouts select" ON scheduled_workouts
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "scheduled workouts insert" ON scheduled_workouts
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "scheduled workouts update" ON scheduled_workouts
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "scheduled workouts delete" ON scheduled_workouts
     FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================================
@@ -298,34 +331,28 @@ CREATE POLICY "Recipients can delete shared workouts" ON shared_workouts
 -- POSTS POLICIES
 -- ============================================================================
 
--- Users can view their own posts
-CREATE POLICY "Users can view own posts" ON posts
-    FOR SELECT USING (auth.uid() = user_id);
+-- Service role bypass for posts
+CREATE POLICY "posts service role full access" ON posts
+    FOR ALL
+    USING (auth.role() = 'service_role')
+    WITH CHECK (auth.role() = 'service_role');
 
--- Users can view public posts
-CREATE POLICY "Public posts are viewable" ON posts
-    FOR SELECT USING (is_public = true);
-
--- Users can view posts from users they follow
-CREATE POLICY "Users can view posts from followed users" ON posts
+-- Users can view their own content, public content, or content allowed by helper
+CREATE POLICY "posts selectable" ON posts
     FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM follows f 
-            WHERE f.follower_id = auth.uid() 
-            AND f.following_id = posts.user_id
-        )
+        is_public = true
+        OR auth.uid() = user_id
+        OR can_view_user_content(user_id)
     );
 
--- Users can insert posts
-CREATE POLICY "Users can create posts" ON posts
+-- Users can insert/update/delete their own posts
+CREATE POLICY "posts insert own" ON posts
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Users can update their own posts
-CREATE POLICY "Users can update own posts" ON posts
+CREATE POLICY "posts update own" ON posts
     FOR UPDATE USING (auth.uid() = user_id);
 
--- Users can delete their own posts
-CREATE POLICY "Users can delete own posts" ON posts
+CREATE POLICY "posts delete own" ON posts
     FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================================

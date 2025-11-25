@@ -119,6 +119,7 @@ chatRoutes.post('/agent', aiHandlers.chatWithAgent);
  *                             format: date-time
  */
 chatRoutes.get('/history', aiHandlers.getChatHistory);
+chatRoutes.get('/context', aiHandlers.getContextSummary);
 
 /**
  * @openapi
@@ -191,6 +192,7 @@ chatRoutes.get('/history', aiHandlers.getChatHistory);
  */
 chatRoutes.get('/conversations', aiHandlers.listConversations);
 chatRoutes.post('/conversations', aiHandlers.createConversation);
+chatRoutes.patch('/conversations/:id', aiHandlers.renameConversation);
 
 /**
  * @openapi

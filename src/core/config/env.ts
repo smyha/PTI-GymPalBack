@@ -60,6 +60,8 @@ const envSchema = z.object({
   
   // AI Agent Configuration
   AGENT_REQUEST_TIMEOUT_MS: z.string().default('900000'), // 15 minutes default timeout
+  AGENT_REQUEST_MAX_RETRIES: z.string().default('2'),
+  AGENT_RETRY_DELAY_MS: z.string().default('3000'),
 });
 
 export const env = envSchema.parse(process.env);

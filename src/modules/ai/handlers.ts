@@ -48,6 +48,22 @@ export const aiHandlers = {
   },
 
   /**
+   * Provide summarized context info (what data we have from the user)
+   */
+  async getContextSummary(c: Context) {
+    const user = getUserFromCtx(c);
+    const userSupabase = c.get('supabase');
+
+    try {
+      const summary = await aiService.getUserContextSummary(user.id, userSupabase);
+      return sendSuccess(c, summary);
+    } catch (error: any) {
+      logger.error({ error, userId: user.id }, 'Failed to get context summary');
+      throw error;
+    }
+  },
+
+  /**
    * Get chat history for a user
    */
   async getChatHistory(c: Context) {
@@ -121,6 +137,29 @@ export const aiHandlers = {
       return sendDeleted(c);
     } catch (error: any) {
       logger.error({ error, userId: user.id }, 'Failed to delete conversation');
+      throw error;
+    }
+  },
+
+  /**
+   * Rename a conversation
+   */
+  async renameConversation(c: Context) {
+    const user = getUserFromCtx(c);
+    const userSupabase = c.get('supabase');
+    const conversationId = c.req.param('id');
+    const body = await c.req.json();
+    const title = body.title;
+
+    if (!conversationId) {
+      return sendNotFound(c, 'Conversation ID');
+    }
+
+    try {
+      const conversation = await aiService.renameConversation(user.id, conversationId, title, userSupabase);
+      return sendSuccess(c, conversation);
+    } catch (error: any) {
+      logger.error({ error, userId: user.id }, 'Failed to rename conversation');
       throw error;
     }
   },

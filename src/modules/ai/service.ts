@@ -12,6 +12,9 @@ import jwt from 'jsonwebtoken';
 import { logger } from '../../core/config/logger.js';
 import { env } from '../../core/config/env.js';
 
+// Small helper to await between retry attempts without blocking the event loop
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export const aiService = {
   /**
    * Sends a message to the Reception Agent webhook
@@ -61,110 +64,142 @@ export const aiService = {
         { algorithm: 'PS512' }
       );
 
-      // Send request to webhook with configurable timeout
-      const timeoutMs = parseInt(env.AGENT_REQUEST_TIMEOUT_MS, 10) || 60000; // Default 60 seconds
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        controller.abort();
-        logger.warn(
-          { userId, agentType, webhookUrl, timeoutMs },
-          `Agent request timeout after ${timeoutMs}ms`
-        );
-      }, timeoutMs);
+      // Retry behaviour is fully configurable via env vars so we can fine-tune for each deployment
+      const timeoutMs = parseInt(env.AGENT_REQUEST_TIMEOUT_MS, 10) || 60000;
+      const maxAgentRetries = Math.max(1, parseInt(env.AGENT_REQUEST_MAX_RETRIES || '1', 10) || 1);
+      const retryDelayMs = Math.max(500, parseInt(env.AGENT_RETRY_DELAY_MS || '3000', 10) || 3000);
+      const isRetryableStatus = (status: number) => status >= 500 || status === 429 || status === 408;
 
-      let response: Response;
-      try {
+      // Wrap the agent call with retry logic so transient errors do not immediately fail the chat
+      const callAgentWithRetry = async (attempt = 1): Promise<{ data: any; responseText: string }> => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+          logger.warn(
+            { userId, agentType, webhookUrl, timeoutMs, attempt },
+            `Agent request timeout after ${timeoutMs}ms (attempt ${attempt}/${maxAgentRetries})`
+          );
+        }, timeoutMs);
+
         const startTime = Date.now();
-        response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            user: userId,
-            text: text,
-            name: userName,
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        const duration = Date.now() - startTime;
-        logger.debug({ userId, agentType, duration }, 'Agent request completed');
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
+
+        try {
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              user: userId,
+              text: text,
+              name: userName,
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          const duration = Date.now() - startTime;
+          logger.debug({ userId, agentType, duration, attempt }, 'Agent request completed');
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
+            const retryable = isRetryableStatus(response.status) && attempt < maxAgentRetries;
+
+            if (retryable) {
+              logger.warn(
+                { userId, agentType, webhookUrl, status: response.status, attempt },
+                'Agent responded with retryable status, retrying'
+              );
+              await wait(retryDelayMs * attempt);
+              return callAgentWithRetry(attempt + 1);
+            }
+
+            if (errorText.includes('<html') || errorText.includes('ngrok')) {
+              logger.error({ userId, agentType, webhookUrl, status: response.status }, 'Agent webhook returned HTML error (likely ngrok issue)');
+              throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Agent service is temporarily unavailable. Please check the webhook URL configuration.');
+            }
+
+            logger.error({ userId, agentType, webhookUrl, status: response.status, errorText }, 'Agent webhook returned error');
+            throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `Agent unavailable: ${response.status} ${response.statusText}`);
+          }
+
+          const contentType = response.headers.get('content-type');
+          let data;
+
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const textResponse = await response.text();
+              data = textResponse && textResponse.trim() ? JSON.parse(textResponse) : {};
+            } catch (e) {
+              console.error('Failed to parse JSON response from agent');
+              return { data: {}, responseText: "Received response from agent, but couldn't process it." };
+            }
+          } else {
+            const textResponse = await response.text();
+            if (textResponse) {
+              return { data: {}, responseText: textResponse };
+            }
+            data = {};
+          }
+
+          let responseText = data?.response;
+
+          if (data?.datos) {
+            logger.info({ agentType, datos: data.datos }, `Received structured data from ${agentType} agent`);
+
+            if (!responseText) {
+              responseText = "Great! I have all the information I need. Here is what I found: " + JSON.stringify(data.datos, null, 2);
+            }
+          }
+
+          if (!responseText) {
+            responseText = `Sorry, I didn't get a response from the ${agentType} agent.`;
+          }
+
+          return { data, responseText };
+        } catch (fetchError: any) {
+          clearTimeout(timeoutId);
+
+          if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
+            if (attempt < maxAgentRetries) {
+              logger.warn(
+                { userId, agentType, webhookUrl, attempt },
+                'Agent request timed out, retrying'
+              );
+              await wait(retryDelayMs * attempt);
+              return callAgentWithRetry(attempt + 1);
+            }
+            logger.error(
+              { userId, agentType, webhookUrl, timeoutMs },
+              'Agent request failed after maximum timeout attempts'
+            );
+            throw new AppError(
+              ErrorCode.EXTERNAL_SERVICE_ERROR,
+              `Agent request timed out after ${Math.round(timeoutMs / 1000)} seconds. The agent may be processing a complex request. Please try again.`
+            );
+          }
+
+          if (attempt < maxAgentRetries) {
+            logger.warn(
+              { error: fetchError, userId, agentType, webhookUrl, attempt },
+              'Agent request failed, retrying'
+            );
+            await wait(retryDelayMs * attempt);
+            return callAgentWithRetry(attempt + 1);
+          }
+
           logger.error(
-            { userId, agentType, webhookUrl, timeoutMs },
-            `Agent request timed out after ${timeoutMs}ms`
+            { error: fetchError, userId, agentType, webhookUrl },
+            'Failed to reach agent webhook'
           );
           throw new AppError(
             ErrorCode.EXTERNAL_SERVICE_ERROR,
-            `Agent request timed out after ${Math.round(timeoutMs / 1000)} seconds. The agent may be processing a complex request. Please try again.`
+            `Failed to connect to agent: ${fetchError.message || 'Network error'}`
           );
         }
-        logger.error(
-          { error: fetchError, userId, agentType, webhookUrl },
-          'Failed to reach agent webhook'
-        );
-        throw new AppError(
-          ErrorCode.EXTERNAL_SERVICE_ERROR,
-          `Failed to connect to agent: ${fetchError.message || 'Network error'}`
-        );
-      }
+      };
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        // Check if response is HTML (ngrok error page)
-        if (errorText.includes('<html') || errorText.includes('ngrok')) {
-          logger.error({ userId, agentType, webhookUrl, status: response.status }, 'Agent webhook returned HTML error (likely ngrok issue)');
-          throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, 'Agent service is temporarily unavailable. Please check the webhook URL configuration.');
-        }
-        logger.error({ userId, agentType, webhookUrl, status: response.status, errorText }, 'Agent webhook returned error');
-        throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `Agent unavailable: ${response.status} ${response.statusText}`);
-      }
-
-      // Check content-type or handle empty body
-      const contentType = response.headers.get('content-type');
-      let data;
-      
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          const text = await response.text();
-          // Try to parse only if there is content
-          if (text && text.trim()) {
-            data = JSON.parse(text);
-          } else {
-            data = {};
-          }
-        } catch (e) {
-          console.error('Failed to parse JSON response from agent');
-          return "Received response from agent, but couldn't process it.";
-        }
-      } else {
-        const text = await response.text();
-        if (text) {
-           return text;
-        }
-        data = {}; 
-      }
-      
-      // Expecting { response: "..." } or { datos: ... }
-      let responseText = data?.response;
-      
-      // If we got structured data ("datos"), format it or log it
-      if (data?.datos) {
-        logger.info({ agentType, datos: data.datos }, `Received structured data from ${agentType} agent`);
-        
-        // If response text is missing but we have data, indicate success
-        if (!responseText) {
-          responseText = "Great! I have all the information I need. Here is what I found: " + JSON.stringify(data.datos, null, 2);
-        }
-      }
-      
-      if (!responseText) {
-         responseText = `Sorry, I didn't get a response from the ${agentType} agent.`;
-      }
+      const { data, responseText } = await callAgentWithRetry();
 
       // --- Start Chat Persistence ---
       try {
@@ -245,6 +280,67 @@ export const aiService = {
       logger.error({ error, userId }, `Failed to communicate with ${agentType} agent`);
       if (error instanceof AppError) throw error;
       throw new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `Failed to contact agent: ${error.message}`);
+    }
+  },
+
+  /**
+   * Summarize user context to know if we already have essential data
+   */
+  async getUserContextSummary(userId: string, userSupabase?: SupabaseClient<Database>) {
+    const db = userSupabase || supabase;
+
+    try {
+      const { data: profile, error: profileError } = await db
+        .from('profiles')
+        .select('full_name, username, preferences, fitness_level')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const { data: personalInfo, error: personalError } = await db
+        .from('user_personal_info')
+        .select('age, weight_kg, height_cm')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (personalError) {
+        throw personalError;
+      }
+
+      const { data: dietaryPreferences, error: dietaryError } = await db
+        .from('user_dietary_preferences')
+        .select('dietary_restrictions, allergies, preferred_cuisines, meal_preferences')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (dietaryError) {
+        throw dietaryError;
+      }
+
+      const missingFields: string[] = [];
+
+      if (!personalInfo?.age) missingFields.push('age');
+      if (!personalInfo?.weight_kg) missingFields.push('weight');
+      if (!personalInfo?.height_cm) missingFields.push('height');
+      const hasDietaryContext =
+        Boolean(dietaryPreferences?.dietary_restrictions?.length) ||
+        Boolean(dietaryPreferences?.preferred_cuisines?.length) ||
+        Boolean(dietaryPreferences?.meal_preferences);
+      if (!hasDietaryContext) missingFields.push('dietaryPreferences');
+
+      return {
+        profile,
+        personalInfo,
+        dietaryPreferences,
+        missingFields,
+        hasEssentialInfo: missingFields.length === 0,
+      };
+    } catch (error: any) {
+      logger.error({ error, userId }, 'Failed to build user context summary');
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to build context summary: ${error.message}`);
     }
   },
 
@@ -332,6 +428,41 @@ export const aiService = {
     if (error) {
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to delete conversation: ${error.message}`);
     }
+  },
+
+  /**
+   * Rename a conversation title
+   */
+  async renameConversation(
+    userId: string,
+    conversationId: string,
+    title: string,
+    userSupabase?: SupabaseClient<Database>
+  ): Promise<any> {
+    const db = userSupabase || supabase;
+    const trimmedTitle = (title || '').trim();
+
+    if (!trimmedTitle) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Title is required');
+    }
+
+    const { data, error } = await db
+      .from('ai_conversations')
+      .update({ title: trimmedTitle })
+      .eq('id', conversationId)
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to rename conversation: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'Conversation not found');
+    }
+
+    return data;
   },
 
   /**
