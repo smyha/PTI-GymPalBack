@@ -434,78 +434,56 @@ export const workoutService = {
    * Used to allow users to copy workouts shared in the social feed
    */
   async copyWorkoutForUser(userId: string, sourceWorkoutId: string): Promise<Unified.Workout> {
-    // Use RPC to bypass RLS if admin client is not configured with service role
-    const { data: sourceWorkouts, error: fetchError } = await supabaseAdmin
-      .rpc('get_workout_by_id', { p_id: sourceWorkoutId }) as any;
+    logger.debug({ userId, sourceWorkoutId }, 'Starting workout copy operation');
+    
+    // Fetch the source workout directly using supabaseAdmin (bypasses RLS)
+    const { data: sourceWorkout, error: fetchError } = await supabaseAdmin
+      .from('workouts')
+      .select('*')
+      .eq('id', sourceWorkoutId)
+      .maybeSingle();
     
     if (fetchError) {
-         throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to fetch source workout: ${fetchError.message}`);
+      logger.error({ error: fetchError, userId, sourceWorkoutId }, 'Failed to fetch source workout');
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to fetch source workout: ${fetchError.message}`);
     }
 
-    const sourceWorkout = Array.isArray(sourceWorkouts) ? sourceWorkouts[0] : sourceWorkouts;
-
     if (!sourceWorkout) {
+      logger.warn({ userId, sourceWorkoutId }, 'Source workout not found');
       throw new AppError(ErrorCode.NOT_FOUND, `Source workout not found. It might have been deleted or you don't have permission to view it.`);
     }
 
-    // Create a copy with the current user as owner
-    const copiedWorkoutData: any = {
-      user_id: userId,
-      name: `${sourceWorkout.name} (Copy)`,
-      description: sourceWorkout.description,
-      type: sourceWorkout.type,
-      duration_minutes: sourceWorkout.duration_minutes,
-      difficulty: sourceWorkout.difficulty,
-      tags: sourceWorkout.tags || [],
-      is_public: false, // Copies are private by default
-      is_template: false,
-      equipment_required: sourceWorkout.equipment_required || [],
-    };
+    // Ensure workout is public or owned by user before allowing copy
+    if (!sourceWorkout.is_public && sourceWorkout.user_id !== userId) {
+      logger.warn({ userId, sourceWorkoutId, workoutUserId: sourceWorkout.user_id, isPublic: sourceWorkout.is_public }, 'User attempted to copy private workout they do not own');
+      throw new AppError(ErrorCode.FORBIDDEN, `You don't have permission to copy this workout. It must be public or owned by you.`);
+    }
 
-    const { data: newWorkout, error: createError } = await insertRow('workouts', copiedWorkoutData);
+    logger.debug({ userId, sourceWorkoutId, workoutName: sourceWorkout.name }, 'Source workout found, proceeding with copy');
+
+    // Use RPC function to copy workout (bypasses RLS via SECURITY DEFINER)
+    logger.debug({ userId, sourceWorkoutId }, 'Calling copy_workout_for_user RPC function');
+    const { data: newWorkout, error: createError } = await (supabaseAdmin as any)
+      .rpc('copy_workout_for_user', {
+        p_user_id: userId,
+        p_source_workout_id: sourceWorkoutId,
+      })
+      .single();
 
     if (createError || !newWorkout) {
+      logger.error({ 
+        error: createError, 
+        errorCode: createError?.code,
+        errorMessage: createError?.message,
+        errorDetails: createError?.details,
+        errorHint: createError?.hint,
+        userId, 
+        sourceWorkoutId
+      }, 'Failed to copy workout - RPC error');
       throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to copy workout: ${createError?.message || 'Unknown error'}`);
     }
 
-    // Get workout exercises to copy them using RPC
-    try {
-      const { data: exercises, error: exercisesError } = await supabaseAdmin
-        .rpc('get_workout_exercises_by_workout_id', { p_workout_id: sourceWorkoutId }) as any;
-
-      if (exercisesError) {
-        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to fetch workout exercises: ${exercisesError.message}`);
-      }
-
-      if (exercises && Array.isArray(exercises) && exercises.length > 0) {
-        // Use supabaseAdmin to insert exercises (bypasses RLS)
-        for (const exercise of exercises) {
-          const { error: insertError } = await supabaseAdmin
-            .from('workout_exercises')
-            .insert({
-              workout_id: (newWorkout as any).id,
-              exercise_id: exercise.exercise_id,
-              sets: exercise.sets,
-              reps: exercise.reps,
-              weight_kg: exercise.weight_kg,
-              order_index: exercise.order_index,
-              rest_seconds: exercise.rest_seconds,
-              notes: exercise.notes,
-            } as any);
-
-          if (insertError) {
-            throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to copy exercise: ${insertError.message}`);
-          }
-        }
-      }
-    } catch (err: any) {
-      // If it's an AppError, re-throw it
-      if (err.code) {
-        throw err;
-      }
-      // Otherwise, wrap it in an AppError
-      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to copy workout exercises: ${err.message || 'Unknown error'}`);
-    }
+    logger.debug({ userId, sourceWorkoutId, newWorkoutId: (newWorkout as any).id }, 'Workout and exercises copied successfully via RPC');
 
     return mapWorkoutRowToWorkout(newWorkout);
   },

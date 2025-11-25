@@ -20,13 +20,35 @@ const getClientIP = (c: any): string => {
 };
 
 /**
+ * Paths that should be excluded from rate limiting
+ * These are typically system endpoints that need to be accessible for monitoring
+ * and documentation purposes
+ */
+const EXCLUDED_PATHS = [
+  '/api/health',
+  '/api/reference',
+  '/api/openapi.json',
+  '/api',
+  '/',
+];
+
+/**
  * Rate limiting middleware
  * 
  * Uses user ID for authenticated requests to provide better rate limiting
  * for authenticated users vs anonymous users. For authenticated requests,
  * uses user ID; for anonymous requests, uses IP address.
+ * 
+ * Excludes system endpoints like health checks from rate limiting.
  */
 export const rateLimit = createMiddleware(async (c, next) => {
+  // Skip rate limiting for excluded paths (health checks, root, etc.)
+  const path = c.req.path;
+  if (EXCLUDED_PATHS.some(excludedPath => path === excludedPath || path.startsWith(excludedPath + '/'))) {
+    await next();
+    return;
+  }
+
   // Use user ID if authenticated (may not be set if auth middleware runs after)
   // Otherwise fall back to IP address
   let identifier: string;

@@ -141,34 +141,58 @@ export const socialService = {
 
     const followingIds = new Set((following || []).map(f => f.following_id));
 
-    // Enrich posts with author info, likes, comments, and reposts count
-    const enrichedPosts = await Promise.all(postsData.map(async (post: any) => {
-      // Get likes count (use authenticated client)
-      const { count: likesCount } = await client
-        .from('post_likes')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', post.id);
+    // OPTIMIZATION: Batch fetch all likes, comments, and reposts counts in single queries
+    const postIds = postsData.map((p: any) => p.id);
+    
+    // Batch fetch likes counts
+    const { data: allLikes } = await client
+      .from('post_likes')
+      .select('post_id')
+      .in('post_id', postIds);
+    
+    // Batch fetch comments counts
+    const { data: allComments } = await client
+      .from('post_comments')
+      .select('post_id')
+      .in('post_id', postIds);
+    
+    // Batch fetch reposts counts
+    const { data: repostsForCount } = await client
+      .from('post_reposts')
+      .select('original_post_id')
+      .in('original_post_id', postIds);
+    
+    // Batch fetch user likes
+    const { data: userLikes } = await client
+      .from('post_likes')
+      .select('post_id')
+      .in('post_id', postIds)
+      .eq('user_id', userId);
 
-      // Get comments count (use authenticated client)
-      const { count: commentsCount } = await client
-        .from('post_comments')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', post.id);
+    // Count occurrences efficiently
+    const likesCountMap = new Map<string, number>();
+    const commentsCountMap = new Map<string, number>();
+    const repostsCountMap = new Map<string, number>();
+    const userLikedSet = new Set<string>();
 
-      // Get reposts count (use authenticated client)
-      const { count: repostsCount } = await client
-        .from('post_reposts')
-        .select('*', { count: 'exact', head: true })
-        .eq('original_post_id', post.id);
+    (allLikes || []).forEach((like: any) => {
+      likesCountMap.set(like.post_id, (likesCountMap.get(like.post_id) || 0) + 1);
+    });
 
-      // Check if current user liked this post (use authenticated client)
-      const { data: userLike } = await client
-        .from('post_likes')
-        .select('id')
-        .eq('post_id', post.id)
-        .eq('user_id', userId)
-        .maybeSingle();
+    (allComments || []).forEach((comment: any) => {
+      commentsCountMap.set(comment.post_id, (commentsCountMap.get(comment.post_id) || 0) + 1);
+    });
 
+    (repostsForCount || []).forEach((repost: any) => {
+      repostsCountMap.set(repost.original_post_id, (repostsCountMap.get(repost.original_post_id) || 0) + 1);
+    });
+
+    (userLikes || []).forEach((like: any) => {
+      userLikedSet.add(like.post_id);
+    });
+
+    // Enrich posts with author info, likes, comments, and reposts count (now using pre-fetched data)
+    const enrichedPosts = postsData.map((post: any) => {
       return {
         id: post.id,
         content: post.content,
@@ -194,16 +218,16 @@ export const socialService = {
           avatar: null,
           isFollowing: false,
         },
-        likesCount: likesCount || 0,
-        commentsCount: commentsCount || 0,
-        reposts_count: repostsCount || 0,
-        isLiked: !!userLike,
+        likesCount: likesCountMap.get(post.id) || 0,
+        commentsCount: commentsCountMap.get(post.id) || 0,
+        reposts_count: repostsCountMap.get(post.id) || 0,
+        isLiked: userLikedSet.has(post.id),
       };
-    }));
+    });
 
     // Also fetch reposts from all users (not just current user)
     // Get all reposts (we'll combine with posts and paginate together)
-    const { data: allReposts, error: repostsError } = await client
+    const { data: allRepostsData, error: repostsError } = await client
       .from('post_reposts')
       .select(`
         id,
@@ -212,6 +236,13 @@ export const socialService = {
         reposted_by_user_id
       `)
       .order('reposted_at', { ascending: false });
+    
+    const allReposts = allRepostsData as Array<{
+      id: string;
+      original_post_id: string;
+      reposted_at: string;
+      reposted_by_user_id: string;
+    }> | null;
 
     // Process reposts if available (ignore errors, just log them)
     const processedReposts: any[] = [];
@@ -241,35 +272,55 @@ export const socialService = {
 
         const profilesById = new Map((reposterProfiles || []).map((p: any) => [p.id, p]));
 
+        // OPTIMIZATION: Batch fetch all likes, comments, and reposts for original posts
+        const { data: repostLikes } = await client
+          .from('post_likes')
+          .select('post_id')
+          .in('post_id', originalPostIds);
+        
+        const { data: repostComments } = await client
+          .from('post_comments')
+          .select('post_id')
+          .in('post_id', originalPostIds);
+        
+        const { data: repostReposts } = await client
+          .from('post_reposts')
+          .select('original_post_id')
+          .in('original_post_id', originalPostIds);
+        
+        const { data: repostUserLikes } = await client
+          .from('post_likes')
+          .select('post_id')
+          .in('post_id', originalPostIds)
+          .eq('user_id', userId);
+
+        // Count occurrences efficiently
+        const repostLikesCountMap = new Map<string, number>();
+        const repostCommentsCountMap = new Map<string, number>();
+        const repostRepostsCountMap = new Map<string, number>();
+        const repostUserLikedSet = new Set<string>();
+
+        (repostLikes || []).forEach((like: any) => {
+          repostLikesCountMap.set(like.post_id, (repostLikesCountMap.get(like.post_id) || 0) + 1);
+        });
+
+        (repostComments || []).forEach((comment: any) => {
+          repostCommentsCountMap.set(comment.post_id, (repostCommentsCountMap.get(comment.post_id) || 0) + 1);
+        });
+
+        (repostReposts || []).forEach((repost: any) => {
+          repostRepostsCountMap.set(repost.original_post_id, (repostRepostsCountMap.get(repost.original_post_id) || 0) + 1);
+        });
+
+        (repostUserLikes || []).forEach((like: any) => {
+          repostUserLikedSet.add(like.post_id);
+        });
+
         for (const repost of allReposts) {
           const originalPost = postsById.get(repost.original_post_id);
           if (!originalPost) continue; // Skip if original post not found or not public
 
-          // Get likes and comments count for original post
-          const { count: likesCount } = await client
-            .from('post_likes')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', originalPost.id);
-
-          const { count: commentsCount } = await client
-            .from('post_comments')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', originalPost.id);
-
-          const { data: userLike } = await client
-            .from('post_likes')
-            .select('id')
-            .eq('post_id', originalPost.id)
-            .eq('user_id', userId)
-            .maybeSingle();
-
           const reposterProfile = profilesById.get(repost.reposted_by_user_id);
-
-          // Get reposts count for original post
-          const { count: originalRepostsCount } = await client
-            .from('post_reposts')
-            .select('*', { count: 'exact', head: true })
-            .eq('original_post_id', originalPost.id);
 
           processedReposts.push({
             id: `repost-${repost.id}`,
@@ -319,15 +370,15 @@ export const socialService = {
                 avatar: null,
                 isFollowing: false,
               },
-              likesCount: likesCount || 0,
-              commentsCount: commentsCount || 0,
-              reposts_count: originalRepostsCount || 0,
-              isLiked: !!userLike,
+              likesCount: repostLikesCountMap.get(originalPost.id) || 0,
+              commentsCount: repostCommentsCountMap.get(originalPost.id) || 0,
+              reposts_count: repostRepostsCountMap.get(originalPost.id) || 0,
+              isLiked: repostUserLikedSet.has(originalPost.id),
             },
-            likesCount: likesCount || 0,
-            commentsCount: commentsCount || 0,
-            reposts_count: originalRepostsCount || 0,
-            isLiked: !!userLike,
+            likesCount: repostLikesCountMap.get(originalPost.id) || 0,
+            commentsCount: repostCommentsCountMap.get(originalPost.id) || 0,
+            reposts_count: repostRepostsCountMap.get(originalPost.id) || 0,
+            isLiked: repostUserLikedSet.has(originalPost.id),
           });
         }
       }

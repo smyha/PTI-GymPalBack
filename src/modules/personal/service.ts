@@ -2,7 +2,7 @@ import { supabase, supabaseAdmin } from '../../core/config/database.js';
 import { selectRow, insertRow, updateRow } from '../../core/config/database-helpers.js';
 import { AppError, ErrorCode } from '../../core/utils/error-types.js';
 import type * as Unified from '../../core/types/unified.types.js';
-import type { UpdatePersonalInfoData, UpdateFitnessProfileData } from './types.js';
+import type { UpdatePersonalInfoData, UpdateFitnessProfileData, UpdateDietaryPreferencesData, UpdateUserStatsData } from './types.js';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../core/types/index.js';
 
@@ -151,7 +151,17 @@ export const personalService = {
         primary_goal: data.primary_goal,
         secondary_goals: data.secondary_goals,
         workout_frequency: data.workout_frequency,
+        preferred_workout_duration: data.preferred_workout_duration,
+        available_equipment: data.available_equipment,
+        workout_preferences: data.workout_preferences,
+        injury_history: data.injury_history,
+        medical_restrictions: data.medical_restrictions,
+        fitness_goals_timeline: data.fitness_goals_timeline,
+        motivation_level: data.motivation_level,
       };
+
+      // Remove undefined values
+      Object.keys(profileData).forEach(key => profileData[key] === undefined && delete profileData[key]);
 
       const { data: updated, error } = await updateRow('user_fitness_profile', profileData, (q) => q.eq('user_id', userId), client);
 
@@ -172,7 +182,17 @@ export const personalService = {
         primary_goal: data.primary_goal,
         secondary_goals: data.secondary_goals,
         workout_frequency: data.workout_frequency,
+        preferred_workout_duration: data.preferred_workout_duration,
+        available_equipment: data.available_equipment,
+        workout_preferences: data.workout_preferences,
+        injury_history: data.injury_history,
+        medical_restrictions: data.medical_restrictions,
+        fitness_goals_timeline: data.fitness_goals_timeline,
+        motivation_level: data.motivation_level,
       };
+
+      // Remove undefined values
+      Object.keys(profileData).forEach(key => profileData[key] === undefined && delete profileData[key]);
 
       const { data: inserted, error } = await insertRow('user_fitness_profile', profileData, client);
 
@@ -186,5 +206,156 @@ export const personalService = {
 
       return inserted;
     }
+  },
+
+  /**
+   * Gets dietary preferences for a user
+   * Returns object with null values by default instead of empty object
+   */
+  async getDietaryPreferences(userId: string, client?: SupabaseClient<Database>): Promise<any> {
+    const { data, error } = await selectRow('user_dietary_preferences', (q) => q.eq('user_id', userId), client);
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get dietary preferences: ${error.message}`);
+    }
+
+    // Return object with null values if no data exists
+    return data || {
+      dietary_restrictions: null,
+      allergies: null,
+      preferred_cuisines: null,
+      disliked_foods: null,
+      daily_calorie_target: null,
+      protein_target_percentage: null,
+      carb_target_percentage: null,
+      fat_target_percentage: null,
+      meal_preferences: null,
+      updated_at: null,
+    };
+  },
+
+  /**
+   * Updates dietary preferences for a user
+   */
+  async updateDietaryPreferences(userId: string, data: UpdateDietaryPreferencesData, client?: SupabaseClient<Database>): Promise<any> {
+    // First, check if dietary preferences exist
+    const { data: existing } = await selectRow('user_dietary_preferences', (q) => q.eq('user_id', userId), client);
+
+    if (existing) {
+      // Update existing record
+      const preferencesData: any = {
+        dietary_restrictions: data.dietary_restrictions,
+        allergies: data.allergies,
+        preferred_cuisines: data.preferred_cuisines,
+        disliked_foods: data.disliked_foods,
+        daily_calorie_target: data.daily_calorie_target,
+        protein_target_percentage: data.protein_target_percentage,
+        carb_target_percentage: data.carb_target_percentage,
+        fat_target_percentage: data.fat_target_percentage,
+        meal_preferences: data.meal_preferences,
+      };
+
+      // Remove undefined values
+      Object.keys(preferencesData).forEach(key => preferencesData[key] === undefined && delete preferencesData[key]);
+
+      const { data: updated, error } = await updateRow('user_dietary_preferences', preferencesData, (q) => q.eq('user_id', userId), client);
+
+      if (error) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update dietary preferences: ${error.message}`);
+      }
+
+      if (!updated) {
+        throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to update dietary preferences');
+      }
+
+      return updated;
+    } else {
+      // Insert new record
+      const preferencesData: any = {
+        user_id: userId,
+        dietary_restrictions: data.dietary_restrictions,
+        allergies: data.allergies,
+        preferred_cuisines: data.preferred_cuisines,
+        disliked_foods: data.disliked_foods,
+        daily_calorie_target: data.daily_calorie_target,
+        protein_target_percentage: data.protein_target_percentage,
+        carb_target_percentage: data.carb_target_percentage,
+        fat_target_percentage: data.fat_target_percentage,
+        meal_preferences: data.meal_preferences,
+      };
+
+      // Remove undefined values
+      Object.keys(preferencesData).forEach(key => preferencesData[key] === undefined && delete preferencesData[key]);
+
+      const { data: inserted, error } = await insertRow('user_dietary_preferences', preferencesData, client);
+
+      if (error) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create dietary preferences: ${error.message}`);
+      }
+
+      if (!inserted) {
+        throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to create dietary preferences');
+      }
+
+      return inserted;
+    }
+  },
+
+  /**
+   * Gets user stats for a user
+   * Returns the most recent stats entry
+   */
+  async getUserStats(userId: string, client?: SupabaseClient<Database>): Promise<any> {
+    const supabaseClient = client || supabase;
+    const { data, error } = await supabaseClient
+      .from('user_stats')
+      .select('*')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to get user stats: ${error.message}`);
+    }
+
+    // Return object with null values if no data exists
+    return data || {
+      height_cm: null,
+      weight_kg: null,
+      body_fat_percentage: null,
+      target_weight_kg: null,
+      recorded_at: null,
+    };
+  },
+
+  /**
+   * Updates user stats for a user
+   * Creates a new entry in user_stats (historical tracking)
+   */
+  async updateUserStats(userId: string, data: UpdateUserStatsData, client?: SupabaseClient<Database>): Promise<any> {
+    const statsData: any = {
+      user_id: userId,
+      height_cm: data.height_cm,
+      weight_kg: data.weight_kg,
+      body_fat_percentage: data.body_fat_percentage,
+      target_weight_kg: data.target_weight_kg,
+      recorded_at: data.recorded_at || new Date().toISOString(),
+    };
+
+    // Remove undefined values
+    Object.keys(statsData).forEach(key => statsData[key] === undefined && delete statsData[key]);
+
+    const { data: inserted, error } = await insertRow('user_stats', statsData, client);
+
+    if (error) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to create user stats: ${error.message}`);
+    }
+
+    if (!inserted) {
+      throw new AppError(ErrorCode.INTERNAL_ERROR, 'Failed to create user stats');
+    }
+
+    return inserted;
   },
 };

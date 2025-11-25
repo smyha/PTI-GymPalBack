@@ -298,5 +298,33 @@ personalRoutes.get(PERSONAL_ROUTES.FITNESS_PROFILE, personalHandlers.getFitnessP
  */
 personalRoutes.put(PERSONAL_ROUTES.UPDATE_FITNESS_PROFILE, validate(personalSchemas.updateFitnessProfile, 'body'), personalHandlers.updateFitnessProfile);
 
+/**
+ * Handler: Get dietary preferences
+ * 
+ * Endpoint: GET /api/v1/personal/dietary-preferences
+ */
+personalRoutes.get(PERSONAL_ROUTES.DIETARY_PREFERENCES, personalHandlers.getDietaryPreferences);
+
+/**
+ * Handler: Update dietary preferences
+ * 
+ * Endpoint: PUT /api/v1/personal/dietary-preferences
+ */
+personalRoutes.put(PERSONAL_ROUTES.UPDATE_DIETARY_PREFERENCES, validate(personalSchemas.updateDietaryPreferences, 'body'), personalHandlers.updateDietaryPreferences);
+
+/**
+ * Handler: Get user stats
+ * 
+ * Endpoint: GET /api/v1/personal/stats
+ */
+personalRoutes.get(PERSONAL_ROUTES.USER_STATS, personalHandlers.getUserStats);
+
+/**
+ * Handler: Update user stats
+ * 
+ * Endpoint: PUT /api/v1/personal/stats
+ */
+personalRoutes.put(PERSONAL_ROUTES.UPDATE_USER_STATS, validate(personalSchemas.updateUserStats, 'body'), personalHandlers.updateUserStats);
+
 export default personalRoutes;
 
