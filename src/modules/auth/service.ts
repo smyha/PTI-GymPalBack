@@ -242,19 +242,34 @@ export const authService = {
    * Changes password for authenticated user
    */
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
-    // First verify current password by attempting to sign in
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.id !== userId) {
+    // Get authenticated user
+    const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+    
+    if (getUserError || !user) {
       throw new AppError(ErrorCode.UNAUTHORIZED, 'User not authenticated');
     }
 
+    if (user.id !== userId) {
+      throw new AppError(ErrorCode.UNAUTHORIZED, 'User not authenticated');
+    }
+
+    // Verify current password by attempting to sign in with it
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email || '',
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      throw new AppError(ErrorCode.INVALID_CREDENTIALS, 'Current password is incorrect');
+    }
+
     // Update password
-    const { error } = await supabase.auth.updateUser({
+    const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });
 
-    if (error) {
-      throw new AppError(ErrorCode.INTERNAL_ERROR, `Password change failed: ${error.message}`);
+    if (updateError) {
+      throw new AppError(ErrorCode.INTERNAL_ERROR, `Password change failed: ${updateError.message}`);
     }
   },
 
