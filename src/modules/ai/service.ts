@@ -55,29 +55,31 @@ export const aiService = {
       const timeoutMs = parseInt(env.AGENT_REQUEST_TIMEOUT_MS, 10) || 60000;
       const maxAgentRetries = Math.max(1, parseInt(env.AGENT_REQUEST_MAX_RETRIES || '1', 10) || 1);
       const retryDelayMs = Math.max(500, parseInt(env.AGENT_RETRY_DELAY_MS || '3000', 10) || 3000);
-      
-      // Calculate JWT expiration: timeout * max retries + retry delays + 5 minutes buffer
-      // This ensures the JWT doesn't expire during long-running requests with retries
-      const maxRequestDuration = (timeoutMs * maxAgentRetries) + (retryDelayMs * maxAgentRetries) + (5 * 60 * 1000);
-      const jwtExpirationSeconds = Math.ceil(maxRequestDuration / 1000);
-
-      // Create JWT using the private key (PS512)
-      const token = jwt.sign(
-        {
-          iss: 'gympal-backend',
-          sub: userId,
-          aud: agentType === 'data' ? 'data-agent' : agentType === 'routine' ? 'routine-agent' : 'reception-agent',
-          iat: Math.floor(Date.now() / 1000),
-          exp: Math.floor(Date.now() / 1000) + jwtExpirationSeconds,
-        },
-        RECEPTION_AGENT_PRIVATE_KEY,
-        { algorithm: 'PS512' }
-      );
-
       const isRetryableStatus = (status: number) => status >= 500 || status === 429 || status === 408;
+      
+      // JWT expiration configuration - use longer expiration to handle retries and long conversations
+      // Default to 30 minutes (1800 seconds), but allow configuration via env
+      const jwtExpirationSeconds = parseInt(env.AGENT_JWT_EXPIRATION_SECONDS || '1800', 10) || 1800;
+
+      // Helper function to generate a fresh JWT token for each request/retry
+      const generateToken = () => {
+        return jwt.sign(
+          {
+            iss: 'gympal-backend',
+            sub: userId,
+            aud: agentType === 'data' ? 'data-agent' : agentType === 'routine' ? 'routine-agent' : 'reception-agent',
+            iat: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + jwtExpirationSeconds, // Configurable expiration (default: 30 minutes)
+          },
+          RECEPTION_AGENT_PRIVATE_KEY,
+          { algorithm: 'PS512' }
+        );
+      };
 
       // Wrap the agent call with retry logic so transient errors do not immediately fail the chat
       const callAgentWithRetry = async (attempt = 1): Promise<{ data: any; responseText: string }> => {
+        // Generate a fresh token for each attempt to ensure it's not expired
+        const token = generateToken();
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           controller.abort();
