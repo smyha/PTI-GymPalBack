@@ -51,6 +51,16 @@ export const aiService = {
 
       const userName = profile?.full_name || profile?.username || 'User';
 
+      // Retry behaviour is fully configurable via env vars so we can fine-tune for each deployment
+      const timeoutMs = parseInt(env.AGENT_REQUEST_TIMEOUT_MS, 10) || 60000;
+      const maxAgentRetries = Math.max(1, parseInt(env.AGENT_REQUEST_MAX_RETRIES || '1', 10) || 1);
+      const retryDelayMs = Math.max(500, parseInt(env.AGENT_RETRY_DELAY_MS || '3000', 10) || 3000);
+      
+      // Calculate JWT expiration: timeout * max retries + retry delays + 5 minutes buffer
+      // This ensures the JWT doesn't expire during long-running requests with retries
+      const maxRequestDuration = (timeoutMs * maxAgentRetries) + (retryDelayMs * maxAgentRetries) + (5 * 60 * 1000);
+      const jwtExpirationSeconds = Math.ceil(maxRequestDuration / 1000);
+
       // Create JWT using the private key (PS512)
       const token = jwt.sign(
         {
@@ -58,16 +68,12 @@ export const aiService = {
           sub: userId,
           aud: agentType === 'data' ? 'data-agent' : agentType === 'routine' ? 'routine-agent' : 'reception-agent',
           iat: Math.floor(Date.now() / 1000),
-          exp: Math.floor(Date.now() / 1000) + 60, // 1 minute expiration
+          exp: Math.floor(Date.now() / 1000) + jwtExpirationSeconds,
         },
         RECEPTION_AGENT_PRIVATE_KEY,
         { algorithm: 'PS512' }
       );
 
-      // Retry behaviour is fully configurable via env vars so we can fine-tune for each deployment
-      const timeoutMs = parseInt(env.AGENT_REQUEST_TIMEOUT_MS, 10) || 60000;
-      const maxAgentRetries = Math.max(1, parseInt(env.AGENT_REQUEST_MAX_RETRIES || '1', 10) || 1);
-      const retryDelayMs = Math.max(500, parseInt(env.AGENT_RETRY_DELAY_MS || '3000', 10) || 3000);
       const isRetryableStatus = (status: number) => status >= 500 || status === 429 || status === 408;
 
       // Wrap the agent call with retry logic so transient errors do not immediately fail the chat
