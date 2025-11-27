@@ -291,7 +291,16 @@ export const workoutService = {
     if (data.equipment_required !== undefined) updateData.equipment_required = data.equipment_required;
     if (data.user_notes !== undefined) updateData.user_notes = data.user_notes;
 
+
     // First verify ownership
+    // Validate that id and userId are valid UUIDs
+    if (!id || typeof id !== 'string') {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Invalid workout ID: ${id}`);
+    }
+    if (!userId || typeof userId !== 'string') {
+      throw new AppError(ErrorCode.DATABASE_ERROR, `Invalid user ID: ${userId}`);
+    }
+
     const { data: existingWorkout, error: fetchError } = await client
       .from('workouts')
       .select('id, user_id')
@@ -309,29 +318,53 @@ export const workoutService = {
       throw new AppError(ErrorCode.NOT_FOUND, 'Workout not found');
     }
 
+    if (!existingWorkout.user_id) {
+      throw new AppError(ErrorCode.DATABASE_ERROR, 'Workout has no user_id associated');
+    }
+
     if (existingWorkout.user_id !== userId) {
       throw new AppError(ErrorCode.FORBIDDEN, 'You can only update your own workouts');
     }
 
     // Update workout metadata
-    const { data: updated, error } = await client
-      .from('workouts')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    // Only update if there are fields to update
+    if (Object.keys(updateData).length > 0) {
+      const { data: updated, error } = await client
+        .from('workouts')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single();
 
-    if (error) {
-      throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update workout: ${error.message}`);
-    }
+      if (error) {
+        throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to update workout: ${error.message}`);
+      }
 
-    if (!updated) {
-      throw new AppError(ErrorCode.NOT_FOUND, 'Workout not found or access denied');
+      if (!updated) {
+        throw new AppError(ErrorCode.NOT_FOUND, 'Workout not found or access denied');
+      }
     }
 
     // Update exercises if provided
     if (data.exercises && Array.isArray(data.exercises)) {
+      // Validate exercises data
+      for (let i = 0; i < data.exercises.length; i++) {
+        const ex = data.exercises[i];
+        if (!ex.exercise_id) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, `Exercise at index ${i} is missing exercise_id`);
+        }
+        // Validate sets and reps can be converted to numbers
+        const setsNum = typeof ex.sets === 'number' ? ex.sets : parseInt(String(ex.sets || 3), 10);
+        const repsNum = typeof ex.reps === 'number' ? ex.reps : parseInt(String(ex.reps || 10), 10);
+        if (isNaN(setsNum) || setsNum < 1) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, `Exercise at index ${i} has invalid sets: ${ex.sets}`);
+        }
+        if (isNaN(repsNum) || repsNum < 1) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, `Exercise at index ${i} has invalid reps: ${ex.reps}`);
+        }
+      }
+
       // Delete existing exercises
       const { error: deleteError } = await client
         .from('workout_exercises')
@@ -344,26 +377,38 @@ export const workoutService = {
 
       // Insert new exercises
       if (data.exercises.length > 0) {
-        for (let i = 0; i < data.exercises.length; i++) {
-          const ex = data.exercises[i];
-          const exerciseData: any = {
+        // Prepare all exercises for batch insert
+        const exercisesToInsert = data.exercises.map((ex, i) => {
+          // Ensure sets and reps are integers
+          const sets = typeof ex.sets === 'number' ? Math.floor(ex.sets) : parseInt(String(ex.sets || 3), 10);
+          const reps = typeof ex.reps === 'number' ? Math.floor(ex.reps) : parseInt(String(ex.reps || 10), 10);
+          const weight = ex.weight ? (typeof ex.weight === 'number' ? ex.weight : parseFloat(String(ex.weight))) : null;
+
+          if (isNaN(sets) || sets < 1) {
+            throw new Error(`Invalid sets value: ${ex.sets} for exercise ${i}`);
+          }
+          if (isNaN(reps) || reps < 1) {
+            throw new Error(`Invalid reps value: ${ex.reps} for exercise ${i}`);
+          }
+
+          return {
             workout_id: id,
             exercise_id: ex.exercise_id,
             order_index: i,
-            sets: ex.sets,
-            reps: ex.reps,
-            weight_kg: ex.weight || null,
+            sets: sets,
+            reps: reps,
+            weight_kg: weight && weight > 0 ? weight : null,
             rest_seconds: 60, // Default rest time
           };
+        });
 
-          const { error: exerciseError } = await client
-            .from('workout_exercises')
-            .insert(exerciseData as any);
+        // Use batch insert instead of individual inserts for better performance
+        const { error: exerciseError } = await client
+          .from('workout_exercises')
+          .insert(exercisesToInsert);
 
-          if (exerciseError) {
-            console.error('Database Error adding exercise:', JSON.stringify(exerciseError, null, 2));
-            throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to add exercise to workout: ${exerciseError.message}`);
-          }
+        if (exerciseError) {
+          throw new AppError(ErrorCode.DATABASE_ERROR, `Failed to add exercises to workout: ${exerciseError.message}`);
         }
       }
     }

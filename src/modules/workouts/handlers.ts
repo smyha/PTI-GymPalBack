@@ -157,9 +157,14 @@ export const workoutHandlers = {
   async update(c: Context) {
     // Extract user, ID and update data
     const user = getUserFromCtx(c);
-    const { id } = c.get('validated') as { id: string };
+    // Get id from route params (validated by params middleware, but body validation overwrites it)
+    const id = c.req.param('id');
     const data = c.get('validated') as UpdateWorkoutData;
     const supabase = c.get('supabase');
+
+    if (!id) {
+      throw new Error('Workout ID is required');
+    }
 
     try {
       // Update workout, verifying ownership and passing authenticated client

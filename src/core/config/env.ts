@@ -57,10 +57,11 @@ const envSchema = z.object({
   RECEPTION_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/receptionAgent'),
   DATA_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/dataAgent'),
   ROUTINE_AGENT_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/routineAgent'),
+  RECOMMEND_EXERCISES_WEBHOOK_URL: z.string().url().default('https://carrol-eudemonistical-gregg.ngrok-free.dev/webhook/recommend-exercises'),
   
   // AI Agent Configuration
   AGENT_REQUEST_TIMEOUT_MS: z.string().default('900000'), // 15 minutes default timeout
-  AGENT_REQUEST_MAX_RETRIES: z.string().default('2'),
+  AGENT_REQUEST_MAX_RETRIES: z.string().default('10'),
   AGENT_RETRY_DELAY_MS: z.string().default('3000'),
   AGENT_JWT_EXPIRATION_SECONDS: z.string().default('1800'), // 30 minutes default JWT expiration
 });
