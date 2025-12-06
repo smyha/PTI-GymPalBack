@@ -24,7 +24,10 @@ import { AppError, ErrorCode } from '../../core/utils/error-types.js';
  */
 export const aiHandlers = {
   /**
-   * Sends a message to the Reception Agent or other agents
+   * Sends a message to AI agents in sequential order:
+   * 1. Reception agent (collects initial data)
+   * 2. Data agent (collects routine-specific data)
+   * 3. Routine agent (generates workout routine from combined data)
    */
   async chatWithAgent(c: Context) {
     const user = getUserFromCtx(c);
@@ -32,15 +35,15 @@ export const aiHandlers = {
     const body = await c.req.json();
     const text = body.text;
     const conversationId = body.conversationId; // Optional
-    const agentType = body.agentType; // Optional, defaults to 'reception'
+    const currentAgent = body.currentAgent; // Optional: 'reception' | 'data'
 
     if (!text) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Text is required');
     }
 
     try {
-      const response = await aiService.sendMessageToAgent(user.id, text, conversationId, agentType, userSupabase);
-      return sendSuccess(c, { response });
+      const result = await aiService.sendMessageToAgent(user.id, text, conversationId, userSupabase, currentAgent);
+      return sendSuccess(c, result);
     } catch (error: any) {
       logger.error({ error, userId: user.id }, 'Failed to chat with agent');
       throw error;

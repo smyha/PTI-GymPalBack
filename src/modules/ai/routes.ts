@@ -47,11 +47,10 @@ const chatRoutes = new Hono();
  *                 type: string
  *                 format: uuid
  *                 description: Optional conversation ID to continue a chat
- *               agentType:
- *                 type: string
- *                 enum: [reception, data, routine]
- *                 default: reception
- *                 description: The type of agent to interact with
+ *               Note: Agent selection is automatic. The system communicates sequentially:
+ *               1. Reception agent (collects initial data)
+ *               2. Data agent (collects routine-specific data)
+ *               3. Routine agent (generates workout routine from combined data)
  *     responses:
  *       200:
  *         description: AI response received
